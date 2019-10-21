@@ -1,0 +1,22 @@
+language: rust
+os:
+ - linux
+ - osx
+ - windows
+rust:
+  - stable
+  - beta
+  - nightly
+jobs:
+  allow_failures:
+    - rust: nightly
+  fast_finish: true
+before_install:
+  - rustup -v component add rustfmt
+  - rustup -v component add clippy
+script:
+  - cargo -v fmt --all -- --check
+  - cargo -v check --all --examples --tests --benches
+  - cargo -v clippy --all --examples --tests --benches
+  - cargo -v test --all
+  - cargo -v bench --all
