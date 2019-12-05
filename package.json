@@ -1,0 +1,36 @@
+{
+  "dependencies": {
+    "@babel/cli": "^7.7.5",
+    "@babel/core": "^7.7.5",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.7.4",
+    "@babel/plugin-proposal-optional-chaining": "^7.7.5",
+    "@babel/preset-env": "^7.7.5",
+    "@babel/register": "^7.7.4",
+    "bitsharesjs": "^3.1.1",
+    "bitsharesjs-ws": "^3.1.1",
+    "bull": "^3.12.1",
+    "compression": "^1.7.4",
+    "core-js": "^3.4.7",
+    "cross-fetch": "^3.0.4",
+    "decimal.js": "^10.2.0",
+    "errorhandler": "^1.5.1",
+    "ethereumjs-wallet": "^0.6.3",
+    "express": "^4.17.1",
+    "helmet": "^3.21.2",
+    "mariadb": "^2.1.4",
+    "morgan": "^1.9.1",
+    "mysql": "^2.17.1",
+    "pg": "^7.14.0",
+    "pg-hstore": "^2.3.3",
+    "sequelize": "^5.21.2",
+    "sequelize-cli": "^5.5.1",
+    "sha3": "^2.1.1",
+    "sqlite3": "^4.1.1",
+    "tedious": "^6.6.2",
+    "web3": "^1.2.4"
+  },
+  "scripts": {
+    "build": "babel lib -d dist",
+    "serve": "npm run build && node dist/index.js"
+  }
+}
