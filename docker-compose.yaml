@@ -1,0 +1,14 @@
+version: '2.0'
+services:
+  memory_db:
+    image: redis:5-buster
+    ports:
+     - "6379:6379"
+  db:
+    image: postgres:12
+    environment:
+      POSTGRES_USER: "payment-gateway"
+      POSTGRES_DB: "payment-gateway"
+      POSTGRES_PASSWORD: "payment-gateway"
+    ports:
+     - "5432:5432"
