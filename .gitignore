@@ -1,7 +1,4 @@
 /dist
 /node_modules
-/.babelrc
-/.sequelizerc
 /db.sql
-/ethereum_ustd_source
 /queries
