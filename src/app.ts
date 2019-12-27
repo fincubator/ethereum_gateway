@@ -4,11 +4,11 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 
-import * as configs from './config/config.app.js';
+import * as configs from './config/config.app';
 
 const env = process.env.NODE_ENV || 'development';
-const appConfig = configs[env];
-const app = express();
+export const appConfig = configs[env];
+export const app = express();
 
 if(process.env.NODE_ENV === 'development') {
   app.use(errorhandler());
@@ -23,4 +23,5 @@ app.use(morgan('combined')).use(helmet({
   express.json()
 );
 
-export { appConfig, app };
+export const onStart = [];
+export const onSignal = [];

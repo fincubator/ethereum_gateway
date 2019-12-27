@@ -1,4 +1,4 @@
-const up = async (queryInterface, Sequelize) => {
+async function up(queryInterface, Sequelize): Promise<void> {
   await queryInterface.sequelize.transaction(async transaction => {
     await queryInterface.createTable('Wallets', {
       id: { type: Sequelize.BIGINT, primaryKey: true, allowNull: false,
@@ -19,9 +19,9 @@ const up = async (queryInterface, Sequelize) => {
     await queryInterface.createTable('DerivedWallets', {
       id: { type: Sequelize.BIGINT, primaryKey: true, allowNull: false,
             autoIncrement: true, autoIncrementIdentity: true },
-      walletFrom: { type: Sequelize.BIGINT, allowNull: false,
-                    references: { model: 'Wallets', key: 'id' },
-                    onUpdate: 'cascade', onDelete: 'cascade' },
+      walletId: { type: Sequelize.BIGINT, allowNull: false,
+                  references: { model: 'Wallets', key: 'id' },
+                  onUpdate: 'cascade', onDelete: 'cascade' },
       payment: { type: Sequelize.ENUM('ethereum', 'bitshares'),
                  allowNull: false },
       invoice: { type: Sequelize.JSONB, allowNull: false },
@@ -33,7 +33,7 @@ const up = async (queryInterface, Sequelize) => {
       version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 }
     }, { transaction });
     await queryInterface.addConstraint(
-      'DerivedWallets', ['walletFrom', 'payment'], {
+      'DerivedWallets', ['walletId', 'payment'], {
         transaction, type: 'unique'
       }
     );
@@ -43,13 +43,14 @@ const up = async (queryInterface, Sequelize) => {
     await queryInterface.createTable('Transactions', {
       id: { type: Sequelize.BIGINT, primaryKey: true, allowNull: false,
             autoIncrement: true, autoIncrementIdentity: true },
+      jobId: { type: Sequelize.UUID, unique: true, allowNull: false,
+               defaultValue: Sequelize.UUIDV4 },
       walletId: { type: Sequelize.BIGINT, allowNull: false,
                   references: { model: 'DerivedWallets', key: 'id' },
                   onUpdate: 'cascade', onDelete: 'cascade' },
       tickerFrom: { type: Sequelize.ENUM('USDT', 'FINTEH.USDT'),
                     allowNull: false },
-      amountFrom: { type: Sequelize.DECIMAL(40, 20).UNSIGNED,
-                    allowNull: false },
+      amountFrom: Sequelize.DECIMAL(40, 20).UNSIGNED,
       tickerTo: { type: Sequelize.ENUM('USDT', 'FINTEH.USDT'),
                   allowNull: false },
       amountTo: Sequelize.DECIMAL(40, 20).UNSIGNED,
@@ -97,7 +98,7 @@ const up = async (queryInterface, Sequelize) => {
 };
 
 
-const down = async (queryInterface, Sequelize) => {
+async function down(queryInterface, Sequelize): Promise<void> {
   queryInterface.sequelize.transaction(async transaction => {
     await queryInterface.dropTable('Transactions', { transaction });
     await queryInterface.dropTable('DerivedWallets', { transaction });
