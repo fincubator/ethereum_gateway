@@ -1,5 +1,5 @@
 import { Application, Request, Response } from 'express';
-import { Op as SequelizeOp } from 'sequelize';
+import { Sequelize, Op as SequelizeOp } from 'sequelize';
 import EthereumHDKey from 'ethereumjs-wallet/hdkey';
 
 import { app, appConfig } from './app';
@@ -14,28 +14,28 @@ async function getTransaction(rq: Request, rs: Response): Promise<void> {
   const tx = await sequelize.transaction(async transaction => {
     return await TransactionsModel.findByPk(rq.params.id, {
       attributes: ['tickerFrom', 'amountFrom', 'amountTo', 'status',
-                   [sequelize.json('txReceive.confirmations'),
+                   [Sequelize.json('txReceive.confirmations'),
                     'txReceiveConfirmations'],
-                   [sequelize.json('txReceive.txId'), 'txReceiveTxId'],
-                   [sequelize.json('txReceive.txIndex'), 'txReceiveTxIndex'],
-                   [sequelize.json('txIssue.confirmations'),
+                   [Sequelize.json('txReceive.txId'), 'txReceiveTxId'],
+                   [Sequelize.json('txReceive.txIndex'), 'txReceiveTxIndex'],
+                   [Sequelize.json('txIssue.confirmations'),
                     'txIssueConfirmations'],
-                   [sequelize.json('txIssue.txId'), 'txIssueTxId'],
-                   [sequelize.json('txIssue.txIndex'), 'txIssueTxIndex'],
-                   [sequelize.json('txBurn.confirmations'),
+                   [Sequelize.json('txIssue.txId'), 'txIssueTxId'],
+                   [Sequelize.json('txIssue.txIndex'), 'txIssueTxIndex'],
+                   [Sequelize.json('txBurn.confirmations'),
                     'txBurnConfirmations'],
-                   [sequelize.json('txBurn.txId'), 'txBurnTxId'],
-                   [sequelize.json('txBurn.txIndex'), 'txBurnTxIndex'],
-                   [sequelize.json('txTransferFrom.confirmations'),
+                   [Sequelize.json('txBurn.txId'), 'txBurnTxId'],
+                   [Sequelize.json('txBurn.txIndex'), 'txBurnTxIndex'],
+                   [Sequelize.json('txTransferFrom.confirmations'),
                     'txTransferFromConfirmations'],
-                   [sequelize.json('txTransferFrom.txId'),
+                   [Sequelize.json('txTransferFrom.txId'),
                     'txTransferFromTxId'],
-                   [sequelize.json('txTransferFrom.txIndex'),
+                   [Sequelize.json('txTransferFrom.txIndex'),
                     'txTransferFromTxIndex'],
-                   [sequelize.json('txTransferTo.confirmations'),
+                   [Sequelize.json('txTransferTo.confirmations'),
                     'txTransferToConfirmations'],
-                   [sequelize.json('txTransferTo.txId'), 'txTransferToTxId'],
-                   [sequelize.json('txTransferTo.txIndex'),
+                   [Sequelize.json('txTransferTo.txId'), 'txTransferToTxId'],
+                   [Sequelize.json('txTransferTo.txIndex'),
                     'txTransferToTxIndex']],
       include: [{ model: DerivedWalletsModel,
         as: 'derivedWallet', attributes: ['payment', 'invoice'], include: [{

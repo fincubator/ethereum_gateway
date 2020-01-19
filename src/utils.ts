@@ -17,11 +17,9 @@ export function* range(start: number, stop: number, step: number = 1) {
   }
 };
 
-export type TaskWithState = (state: TaskState) => Promise<boolean>;
+export type TaskResolved = () => boolean;
 
-export interface TaskState {
-  resolved: boolean;
-}
+export type TaskWithState = (isResolved: TaskResolved) => Promise<boolean>;
 
 export interface TaskDecl {
   task: TaskWithState;
@@ -42,7 +40,7 @@ export async function resolveAny(job: Job,
 
   return await new Promise((resolve, reject) => {
     for(const taskDecl of tasks) {
-      taskDecl.task(state).then(result => {
+      taskDecl.task(() => { return state.resolved; }).then(result => {
         if(state.resolved === false && (taskDecl.skip === false ||
                                         result === true)) {
           state.resolved = true;

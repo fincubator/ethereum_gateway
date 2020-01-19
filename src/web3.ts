@@ -8,11 +8,12 @@ import { Decimal } from 'decimal.js';
 
 import { appConfig } from './app';
 import {
-  sequelize, StatusInitial, Transactions as TransactionsModel,
+  sequelize, StatusInitial, Wallets as WalletsModel,
+  DerivedWallets as DerivedWalletsModel, Transactions as TransactionsModel,
   TransactionsStatus as TransactionsModelStatus,
   TransactionsCommitPrefix as TransactionsModelCommitPrefix
 } from './models';
-import { TaskState, toCamelCase, range, resolveAny } from './utils';
+import { TaskResolved, toCamelCase, range, resolveAny } from './utils';
 
 class UnknownTicker extends Error {};
 
@@ -440,14 +441,14 @@ async function fetchAndProcessTx(
 
 async function fetchAllHistoricalBlock(
   job: Job, tr: TransactionsModel, previousStatus: StatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix, resolveState: TaskState
+  commitPrefix: TransactionsModelCommitPrefix, isResolved: TaskResolved
 ): Promise<boolean> {
   const contract = contracts[tr.tickerFrom];
   const currentBlock = await web3.eth.getBlockNumber();
   let last_error = null;
 
   for(const rightBlock of range(currentBlock, 0, -appConfig.web3BatchSize)) {
-    if(resolveState.resolved === true) {
+    if(isResolved() === true) {
       return false;
     }
 
@@ -490,14 +491,14 @@ async function fetchAllHistoricalBlock(
 async function fetchAllNewBlock(job: Job, tr: TransactionsModel,
                                 previousStatus: StatusInitial,
                                 commitPrefix: TransactionsModelCommitPrefix,
-                                resolveState: TaskState): Promise<boolean> {
+                                isResolved: TaskResolved): Promise<boolean> {
   return await new Promise((resolve, reject) => {
     const contract = contracts[tr.tickerFrom];
 
     contract.once('Transfer', { filter: {
       to: tr.derivedWallet!.invoice
     } }, (error, event) => {
-      if(resolveState.resolved === true) {
+      if(isResolved() === true) {
         resolve(false);
       }
 
@@ -520,9 +521,19 @@ export async function fetchBlockUntilTxFound(
     throw new UnknownTickerFrom();
   }
 
+  const trCloned = await sequelize.transaction(async transaction => {
+    const trCloned = await TransactionsModel.findByPk(tr.id,
+      { include: [{ model: DerivedWalletsModel, as: 'derivedWallet',
+        include: [{ model: WalletsModel, as: 'wallet' }]
+      }], transaction }
+    );
+
+    return trCloned!;
+  });
+
   return await resolveAny(job, [
     { task: async state => {
-        return await fetchAllHistoricalBlock(job, tr, previousStatus,
+        return await fetchAllHistoricalBlock(job, trCloned, previousStatus,
                                              commitPrefix, state);
       }, skip: true },
     { task: async state => { return await fetchAllNewBlock(

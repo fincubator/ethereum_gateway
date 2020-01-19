@@ -7,11 +7,12 @@ import { Decimal } from 'decimal.js';
 
 import { appConfig, onStart } from './app';
 import {
-  sequelize, StatusInitial, Transactions as TransactionsModel,
+  sequelize, StatusInitial, Wallets as WalletsModel,
+  DerivedWallets as DerivedWalletsModel, Transactions as TransactionsModel,
   TransactionsStatus as TransactionsModelStatus,
   TransactionsCommitPrefix as TransactionsModelCommitPrefix
 } from './models';
-import { TaskState, toCamelCase, resolveAny } from './utils';
+import { TaskResolved, toCamelCase, resolveAny } from './utils';
 
 class UnknownTicker extends Error {};
 
@@ -32,7 +33,6 @@ class UnknownStatus extends Error {};
 const wif = PrivateKey.fromWif(appConfig.bitsharesSignKey);
 let wifPublicKey;
 const wifMemo = PrivateKey.fromWif(appConfig.bitsharesMemoKey);
-let wifMemoPublicKey;
 
 let bitshares;
 
@@ -47,7 +47,6 @@ onStart.push((async () => {
                                   undefined, () => resolve())
           .init_promise.then(() => {
             wifPublicKey = wif.toPublicKey().toPublicKeyString();
-            wifMemoPublicKey = wifMemo.toPublicKey().toPublicKeyString();
 
             return ChainStore.init();
           })
@@ -327,7 +326,7 @@ export async function processTx(
         }
 
         if(typeof txCommited.tx === 'undefined' || txCommited.tx == null) {
-          txCommited.tx = tx;
+          txCommited.tx = tx.serialize();
           txCommited.txId = tx.id();
           txCommited.txIndex = txIndex;
           txInit = true;
@@ -385,10 +384,13 @@ async function skipOrProcessTx(
       if(typeof op[1].memo !== 'undefined' || op[1].memo !== null) {
         let memo = null;
 
+        const accountFrom = await FetchChain('getAccount', op[1].from);
+        const accountFromMemo = accountFrom.getIn(['options', 'memo_key']);
+
         try {
-          memo = Aes.decrypt_with_checksum(wifMemo, wifMemoPublicKey,
+          memo = Aes.decrypt_with_checksum(wifMemo, accountFromMemo,
                                            op[1].memo.nonce,
-                                           op[1].memo.message);
+                                           op[1].memo.message).toString();
         } catch(error) {
           console.error(`Job ${job.id} skipped transaction ${tx.id()}`, error);
         }
@@ -416,12 +418,12 @@ async function skipOrProcessTx(
 async function fetchAllHistoricalBlock(
   job: Job, tr: TransactionsModel, blockTo: number,
   previousStatus: StatusInitial, commitPrefix: TransactionsModelCommitPrefix,
-  resolveState: TaskState
+  isResolved: TaskResolved
 ): Promise<boolean> {
   let last_error = null;
 
   for(let blockHeight = blockTo; blockHeight >= 0; blockHeight--) {
-    if(resolveState.resolved === true) {
+    if(isResolved() === true) {
       return false;
     }
 
@@ -464,13 +466,13 @@ async function fetchAllHistoricalBlock(
 async function fetchAllNewBlock(job: Job, tr: TransactionsModel,
                                 blockFrom: number, previousStatus: StatusInitial,
                                 commitPrefix: TransactionsModelCommitPrefix,
-                                resolveState: TaskState): Promise<boolean> {
+                                isResolved: TaskResolved): Promise<boolean> {
 
   let dynamicChainProperties;
 
   while(true) {
     do {
-      if(resolveState.resolved === true) {
+      if(isResolved() === true) {
         return false;
       }
 
@@ -488,7 +490,7 @@ async function fetchAllNewBlock(job: Job, tr: TransactionsModel,
     for(let blockHeight = blockFrom;
         blockHeight <= dynamicChainProperties.last_irreversible_block_num;
         blockHeight++) {
-      if(resolveState.resolved === true) {
+      if(isResolved() === true) {
         return true;
       }
 
@@ -527,13 +529,23 @@ export async function fetchBlockUntilTxFound(
     throw new UnknownTickerFrom();
   }
 
+  const trCloned = await sequelize.transaction(async transaction => {
+    const trCloned = await TransactionsModel.findByPk(tr.id,
+      { include: [{ model: DerivedWalletsModel, as: 'derivedWallet',
+        include: [{ model: WalletsModel, as: 'wallet' }]
+      }], transaction }
+    );
+
+    return trCloned!;
+  });
+
   const dynamicChainProperties = await Apis.instance()
     .db_api().exec('get_dynamic_global_properties', []);
 
   return await resolveAny(job, [
     { task: async state => {
       return await fetchAllHistoricalBlock(
-          job, tr, dynamicChainProperties.last_irreversible_block_num,
+          job, trCloned, dynamicChainProperties.last_irreversible_block_num,
           previousStatus, commitPrefix, state
         );
       }, skip: true },
