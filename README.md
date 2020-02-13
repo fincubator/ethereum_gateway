@@ -7,33 +7,30 @@
 blockchains.
 
 # Requirements
-* [Node.js]
-* [NPM]
-* [PostgreSQL]
-* [Redis]
+* [Docker] (19.03.5 tested)
+* [Docker Compose] (1.24.1 tested)
+* [Node.js] (10.16.0 tested)
+* [NPM] (6.9.0 tested)
+* [PostgreSQL] (12.1 tested)
+* [Redis] (5.0.7 tested)
 * [Go Ethereum], [Parity Ethereum] or many other RPC providers like [Infura]
 * [BitShares Core] or many other RPC providers like [blckchnd]
 
-# Installation
-1. Clone the repository:
+# Installation in Docker
+1. Install git, Docker, Docker Compose:
+```bash
+sudo apt install git docker.io docker-compose
+```
+2. Clone the repository:
 ```bash
 git clone https://github.com/fincubator/payment-gateway
 cd payment-gateway
 ```
-2. Install all the dependencies listed in the Requirements section
-3. Install the app dependencies:
+3. Set the environment variables listed in the [config.app.ts] file in the .env
+   file
+4. Start the services by running the command:
 ```bash
-npm i
-```
-4. Configure the environment variables in the [config.app.ts] and
-[config.db.ts] files.
-5. Build the application:
-```bash
-npm run build
-```
-6. Run the application:
-```bash
-npm run serve
+sudo docker-compose up
 ```
 
 # Contributing
@@ -51,6 +48,8 @@ See [LICENSE.md] for the full licensing condition.
 [CONTRIBUTING.md]: CONTRIBUTING.md
 [Telegram]: https://img.shields.io/badge/Telegram-fincubator-blue?logo=telegram
 [Teletram join]: https://t.me/fincubator
+[Docker]: https://www.docker.com
+[Docker Compose]: https://www.docker.com
 [Node.js]: https://nodejs.org/en
 [NPM]: https://www.npmjs.com
 [PostgreSQL]: https://www.postgresql.org

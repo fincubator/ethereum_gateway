@@ -1,8 +1,11 @@
+import IORedis from 'ioredis';
 import { Queue } from 'bullmq';
 
 import { onStart, onSignal } from './app';
 
-export const queue = new Queue('PaymentGateway');
+const connection = new IORedis(6379, "memory_db");
+
+export const queue = new Queue('PaymentGateway', { connection });
 
 //onStart.push((async () => await queue.resume())());
 //onSignal.push((async () => await queue.pause())());

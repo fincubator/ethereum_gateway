@@ -1,0 +1,14 @@
+/dist
+/node_modules
+/CLA-*
+/CONTRIBUTING.md
+/db.sql
+/docker-compose.yaml
+/Dockerfile
+/LICENSE.md
+/queries
+/README.md
+/tsconfig.json
+/.dockerignore
+/.env*
+/.gitignore

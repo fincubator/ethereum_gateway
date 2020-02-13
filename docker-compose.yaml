@@ -1,14 +1,37 @@
 version: '2.0'
 services:
   memory_db:
-    image: redis:5-buster
-    ports:
-     - "6379:6379"
+    # redis:5.0.7-buster
+    image: 44d36d2c2374b240abcf5da2130abf49938b8fb49446df6eec028718520332ef
   db:
-    image: postgres:12
+    # postgres:12.1
+    image: cf879a45faaacd2806705321f157c4c77682c7599589fed65d80f19bb61615a6
     environment:
       POSTGRES_USER: "payment-gateway"
       POSTGRES_DB: "payment-gateway"
       POSTGRES_PASSWORD: "payment-gateway"
-    ports:
-     - "5432:5432"
+  app:
+    build:
+      context: .
+      args:
+        - PORT
+    environment:
+      - PORT
+      - ETHEREUM_COLD_KEY
+      - ETHEREUM_SIGN_KEY
+      - WEB3_PROVIDER
+      - WEB3_BATCH_SIZE
+      - ETHEREUM_BLOCK_CHECK_TIME
+      - ETHEREUM_BLOCK_TRY_CHECK_NUMBER
+      - ETHEREUM_REQUIRED_CONFIRMATIONS
+      - ETHEREUM_USDT_ADDRESS
+      - BITSHARES_SIGN_KEY
+      - BITSHARES_MEMO_KEY
+      - BITSHARES_PROVIDER
+      - BITSHARES_CONNECTION_TIMEOUT
+      - BITSHARES_BLOCK_CHECK_TIME
+      - BITSHARES_BLOCK_TRY_CHECK_NUMBER
+      - BITSHARES_ASSET_FEE
+    depends_on:
+      - memory_db
+      - db
