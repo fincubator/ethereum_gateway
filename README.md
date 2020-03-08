@@ -7,7 +7,7 @@
 blockchains.
 
 # Requirements
-* [Docker] (19.03.5 tested)
+* [Docker] (19.03.5, 18.09.7 tested)
 * [Docker Compose] (1.24.1 tested)
 * [Node.js] (10.16.0 tested)
 * [NPM] (6.9.0 tested)
