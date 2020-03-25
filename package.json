@@ -45,10 +45,58 @@
     "web3-eth-contract": "^1.2.6",
     "web3-utils": "^1.2.6"
   },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^2.25.0",
+    "@typescript-eslint/parser": "^2.25.0",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-typescript": "^7.2.0",
+    "eslint-config-prettier": "^6.10.1",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-prettier": "^3.1.2",
+    "prettier": "^2.0.2"
+  },
   "scripts": {
     "typecheck": "tsc",
-    "build": "babel src -d dist -x \".ts,.tsx\" ",
+    "lint": "eslint --ext .ts,.tsx .",
+    "lint:fix": "eslint --ext .ts,.tsx --fix .",
+    "build": "babel src -d dist -x .ts,.tsx",
     "serve": "node dist/index.js",
     "worker": "node dist/worker.js"
+  },
+  "eslintConfig": {
+    "env": {
+      "es2020": true,
+      "node": true
+    },
+    "extends": [
+      "eslint:all",
+      "plugin:@typescript-eslint/eslint-recommended",
+      "plugin:@typescript-eslint/all",
+      "airbnb-typescript/base",
+      "prettier/@typescript-eslint",
+      "plugin:prettier/recommended"
+    ],
+    "ignorePatterns": ["dist"],
+    "parser": "@typescript-eslint/parser",
+    "parserOptions": {
+      "project": "tsconfig.json",
+      "sourceType": "module"
+    },
+    "plugins": [
+      "@typescript-eslint",
+      "prettier"
+    ],
+    "root": true,
+    "rules": {
+      "prettier/prettier": [
+        "error",
+        {
+          "singleQuote": true
+        },
+        {
+          "usePrettierrc": false
+        }
+      ]
+    }
   }
 }
