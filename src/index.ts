@@ -12,11 +12,12 @@ import './views';
 const server = http.createServer(app);
 
 createTerminus(server, {
-  signal: 'SIGINT', onSignal: async () => {
+  signal: 'SIGINT',
+  onSignal: async () => {
     await Promise.all(onSignal);
-  }
+  },
 });
 
-onStart.push((async () => await server.listen(appConfig.port))());
+onStart.push((async () => server.listen(appConfig.port))());
 
 Promise.all(onStart);
