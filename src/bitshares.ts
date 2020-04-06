@@ -1,43 +1,47 @@
-import { Job } from 'bullmq';
-import { Op as SequelizeOp } from 'sequelize';
 import {
-  PrivateKey,
   Aes,
-  ChainTypes,
   ChainStore,
+  ChainTypes,
   FetchChain,
+  PrivateKey,
   TransactionBuilder,
 } from 'bitsharesjs';
 import { Apis } from 'bitsharesjs-ws';
+import { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
+import { Op as SequelizeOp } from 'sequelize';
 
 import { appConfig, onStart } from './app';
 import {
-  sequelize,
-  StatusInitial,
-  Wallets as WalletsModel,
   DerivedWallets as DerivedWalletsModel,
   Transactions as TransactionsModel,
-  TransactionsStatus as TransactionsModelStatus,
   TransactionsCommitPrefix as TransactionsModelCommitPrefix,
+  TransactionsStatus as TransactionsModelStatus,
+  TransactionsStatusInitial as TransactionsModelStatusInitial,
+  TransactionsTx as TransactionsModelTx,
+  TransactionsTxRaw as TransactionsModelTxRaw,
+  Wallets as WalletsModel,
+  sequelize,
 } from './models';
-import { TaskResolved, toCamelCase, resolveAny } from './utils';
+import { TaskStatus, resolveAny, toCamelCase } from './utils';
 
-class UnknownTicker extends Error {}
+export class TrNotFound extends Error {}
 
-class UnknownTickerFee extends UnknownTicker {}
+export class UnknownTicker extends Error {}
 
-class UnknownTickerFrom extends UnknownTicker {}
+export class UnknownTickerFee extends UnknownTicker {}
 
-class UnknownTickerTo extends UnknownTicker {}
+export class UnknownTickerFrom extends UnknownTicker {}
 
-class UnknownAccount extends Error {}
+export class UnknownTickerTo extends UnknownTicker {}
 
-class UnknownAccountFrom extends UnknownAccount {}
+export class UnknownAccount extends Error {}
 
-class UnknownAccountTo extends UnknownAccount {}
+export class UnknownAccountFrom extends UnknownAccount {}
 
-class UnknownStatus extends Error {}
+export class UnknownAccountTo extends UnknownAccount {}
+
+export class UnknownStatus extends Error {}
 
 const wif = PrivateKey.fromWif(appConfig.bitsharesSignKey);
 let wifPublicKey;
@@ -73,16 +77,18 @@ onStart.push(
   })()
 );
 
-export type TxCreate = (
-  job: Job,
-  tr: TransactionsModel,
-  tx
-) => Promise<Decimal | null>;
+export interface TxCreate {
+  (
+    job: Job,
+    tr: TransactionsModel,
+    tx: TransactionsModelTxRaw
+  ): Promise<Decimal | null>;
+}
 
 export async function txIssue(
-  job: Job,
+  _job: Job,
   tr: TransactionsModel,
-  tx
+  tx: TransactionsModelTxRaw
 ): Promise<Decimal> {
   if (tr.tickerFrom !== 'USDT') {
     throw new UnknownTickerFrom();
@@ -130,9 +136,9 @@ export async function txIssue(
 }
 
 export async function txBurn(
-  job: Job,
+  _job: Job,
   tr: TransactionsModel,
-  tx
+  tx: TransactionsModelTxRaw
 ): Promise<null> {
   if (tr.tickerFrom !== 'FINTEH.USDT') {
     throw new UnknownTickerFrom();
@@ -170,14 +176,12 @@ export async function txCommit(
   job: Job,
   tr: TransactionsModel,
   txCreate: TxCreate,
-  previousStatus: StatusInitial,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix
-): Promise {
+): Promise<any> {
   let txPrefix = toCamelCase(commitPrefix);
 
-  txPrefix = `tx${txPrefix.charAt(0).toUpperCase() ?? ''}${txPrefix.substring(
-    1
-  )}`;
+  txPrefix = `tx${txPrefix.charAt(0).toUpperCase()}${txPrefix.substring(1)}`;
 
   const txCreatedAtPrefix = `${txPrefix}CreatedAt`;
   const okStatus = `${commitPrefix}_commit_ok` as TransactionsModelStatus;
@@ -245,23 +249,20 @@ export async function txCommit(
 export async function processTx(
   job: Job,
   tr: TransactionsModel,
-  tx,
+  tx: TransactionsModelTxRaw,
   txIndex: number,
-  previousStatus: StatusInitial,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix,
   blockFrom: number | null = null
 ): Promise<boolean> {
   let txPrefix = toCamelCase(commitPrefix);
 
-  txPrefix = `tx${txPrefix.charAt(0).toUpperCase() ?? ''}${txPrefix.substring(
-    1
-  )}`;
+  txPrefix = `tx${txPrefix.charAt(0).toUpperCase()}${txPrefix.substring(1)}`;
 
   const txCreatedAtPrefix = `${txPrefix}CreatedAt`;
   const pendingStatus = `${commitPrefix}_pending` as TransactionsModelStatus;
   const okStatus = `${commitPrefix}_ok` as TransactionsModelStatus;
   const errStatus = `${commitPrefix}_err` as TransactionsModelStatus;
-  let founded = false;
   const chainProperties = await Apis.instance()
     .db_api()
     .exec('get_global_properties', []);
@@ -278,11 +279,12 @@ export async function processTx(
   let blockTo;
 
   do {
+    let txNotFetched = true;
     let blockHeight: number;
     let tryFetchNumber = 0;
 
     do {
-      founded = false;
+      txNotFetched = true;
 
       if (
         broadcast &&
@@ -312,8 +314,8 @@ export async function processTx(
 
       for (
         blockHeight = blockTo;
-        blockHeight >= blockFrom! && !founded;
-        blockHeight--
+        blockHeight >= blockFrom! && txNotFetched;
+        blockHeight -= 1
       ) {
         const block = await Apis.instance()
           .db_api()
@@ -334,13 +336,15 @@ export async function processTx(
           }
 
           if (tx.id() === txCheck.id()) {
-            founded = true;
+            txNotFetched = false;
           }
         }
       }
 
-      if (!founded) {
-        if (++tryFetchNumber >= appConfig.bithsaresBlockTryCheckNumber) {
+      if (txNotFetched) {
+        tryFetchNumber += 1;
+
+        if (tryFetchNumber >= appConfig.bithsaresBlockTryCheckNumber) {
           console.error(
             `Job ${job.id} skipped transaction ${tx.id()}: ` +
               `unknown, pending`
@@ -349,13 +353,13 @@ export async function processTx(
           return false;
         }
 
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve, _reject) => {
           setTimeout(() => resolve(), appConfig.bithsaresBlockCheckTime);
         });
       }
-    } while (!founded);
+    } while (txNotFetched);
 
-    let txInit = false;
+    let txInitial = false;
     let amountFrom: string;
 
     if (commitPrefix === 'receive') {
@@ -374,11 +378,11 @@ export async function processTx(
       blockHeight > dynamicChainProperties.last_irreversible_block_num
         ? pendingStatus
         : okStatus;
-    const result = await sequelize.transaction(async (transaction) => {
-      const txCommited = tr[txPrefix] ?? {};
+    const commitStatus = await sequelize.transaction(async (transaction) => {
+      const txCommited: TransactionsModelTx = tr[txPrefix] ?? {};
 
       if (tr.status === previousStatus || tr.status === errStatus) {
-        const existing_tx = await TransactionsModel.findOne({
+        const existingTx = await TransactionsModel.findOne({
           attributes: ['id'],
           where: {
             id: { [SequelizeOp.ne]: tr.id },
@@ -387,7 +391,7 @@ export async function processTx(
           transaction,
         });
 
-        if (existing_tx !== null) {
+        if (existingTx !== null) {
           return false;
         }
 
@@ -399,11 +403,11 @@ export async function processTx(
           txCommited.tx = tx.serialize();
           txCommited.txId = tx.id();
           txCommited.txIndex = txIndex;
-          txInit = true;
+          txInitial = true;
         }
       }
 
-      if (txInit || txCommited.confirmations !== confirmations) {
+      if (txInitial || txCommited.confirmations !== confirmations) {
         txCommited.confirmations = confirmations;
         tr[txPrefix] = txCommited;
       }
@@ -425,12 +429,12 @@ export async function processTx(
       return true;
     });
 
-    if (!result) {
+    if (!commitStatus) {
       return false;
     }
 
     if (tr.status !== okStatus) {
-      await new Promise((resolve, reject) => {
+      await new Promise((resolve, _reject) => {
         setTimeout(() => resolve(), appConfig.bithsaresBlockCheckTime);
       });
     }
@@ -439,15 +443,15 @@ export async function processTx(
   return true;
 }
 
-async function skipOrProcessTx(
+export async function skipOrProcessTx(
   job: Job,
   tr: TransactionsModel,
-  tx,
-  previousStatus: StatusInitial,
+  tx: TransactionsModelTxRaw,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix,
   blockFrom: number
 ): Promise<boolean> {
-  for (let txIndex = 0; txIndex < tx.operations.length; txIndex++) {
+  for (let txIndex = 0; txIndex < tx.operations.length; txIndex += 1) {
     const op = tx.operations[txIndex];
 
     if (op[0] === ChainTypes.operations.transfer) {
@@ -486,7 +490,7 @@ async function skipOrProcessTx(
         }
       }
 
-      const result = await processTx(
+      const commitStatus = await processTx(
         job,
         tr,
         tx,
@@ -496,7 +500,7 @@ async function skipOrProcessTx(
         blockFrom
       );
 
-      if (result) {
+      if (commitStatus) {
         return true;
       }
     }
@@ -505,18 +509,18 @@ async function skipOrProcessTx(
   return false;
 }
 
-async function fetchAllHistoricalBlock(
+export async function fetchAllHistoricalBlock(
   job: Job,
   tr: TransactionsModel,
   blockTo: number,
-  previousStatus: StatusInitial,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix,
-  isResolved: TaskResolved
+  taskStatus: TaskStatus
 ): Promise<boolean> {
-  let last_error = null;
+  let lastError = null;
 
-  for (let blockHeight = blockTo; blockHeight >= 0; blockHeight--) {
-    if (isResolved()) {
+  for (let blockHeight = blockTo; blockHeight >= 0; blockHeight -= 1) {
+    if (taskStatus.resolved()) {
       return false;
     }
 
@@ -526,7 +530,7 @@ async function fetchAllHistoricalBlock(
       block = await Apis.instance().db_api().exec('get_block', [blockHeight]);
     } catch (error) {
       console.error(`Job ${job.id} skipped block from ${blockHeight}`, error);
-      last_error = error;
+      lastError = error;
     }
 
     for (const txRaw of block.transactions) {
@@ -540,7 +544,7 @@ async function fetchAllHistoricalBlock(
         continue;
       }
 
-      const result = await skipOrProcessTx(
+      const processed = await skipOrProcessTx(
         job,
         tr,
         tx,
@@ -549,32 +553,32 @@ async function fetchAllHistoricalBlock(
         blockHeight
       );
 
-      if (result) {
+      if (processed) {
         return true;
       }
     }
   }
 
-  if (last_error !== null) {
-    throw last_error;
+  if (lastError !== null) {
+    throw lastError;
   }
 
   return false;
 }
 
-async function fetchAllNewBlock(
+export async function fetchAllNewBlock(
   job: Job,
   tr: TransactionsModel,
   blockFrom: number,
-  previousStatus: StatusInitial,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix,
-  isResolved: TaskResolved
+  taskStatus: TaskStatus
 ): Promise<boolean> {
   let dynamicChainProperties;
 
   while (true) {
     do {
-      if (isResolved()) {
+      if (taskStatus.resolved()) {
         return false;
       }
 
@@ -583,7 +587,7 @@ async function fetchAllNewBlock(
         .exec('get_dynamic_global_properties', []);
 
       if (blockFrom >= dynamicChainProperties.last_irreversible_block_num + 1) {
-        await new Promise((resolve, reject) => {
+        await new Promise((resolve, _reject) => {
           setTimeout(() => resolve(), appConfig.bithsaresBlockCheckTime);
         });
       }
@@ -595,9 +599,9 @@ async function fetchAllNewBlock(
     for (
       let blockHeight = blockFrom;
       blockHeight <= dynamicChainProperties.last_irreversible_block_num;
-      blockHeight++
+      blockHeight += 1
     ) {
-      if (isResolved()) {
+      if (taskStatus.resolved()) {
         return true;
       }
 
@@ -616,7 +620,7 @@ async function fetchAllNewBlock(
           continue;
         }
 
-        const result = await skipOrProcessTx(
+        const processed = await skipOrProcessTx(
           job,
           tr,
           tx,
@@ -625,7 +629,7 @@ async function fetchAllNewBlock(
           blockHeight
         );
 
-        if (result) {
+        if (processed) {
           return true;
         }
       }
@@ -638,7 +642,7 @@ async function fetchAllNewBlock(
 export async function fetchBlockUntilTxFound(
   job: Job,
   tr: TransactionsModel,
-  previousStatus: StatusInitial,
+  previousStatus: TransactionsModelStatusInitial,
   commitPrefix: TransactionsModelCommitPrefix
 ): Promise<boolean> {
   if (tr.tickerFrom !== 'FINTEH.USDT') {
@@ -646,7 +650,7 @@ export async function fetchBlockUntilTxFound(
   }
 
   const trCloned = await sequelize.transaction(async (transaction) => {
-    const trCloned = await TransactionsModel.findByPk(tr.id, {
+    const maybeTrCloned = await TransactionsModel.findByPk(tr.id, {
       include: [
         {
           model: DerivedWalletsModel,
@@ -657,7 +661,11 @@ export async function fetchBlockUntilTxFound(
       transaction,
     });
 
-    return trCloned!;
+    if (maybeTrCloned === null) {
+      throw new TrNotFound();
+    }
+
+    return maybeTrCloned;
   });
 
   const dynamicChainProperties = await Apis.instance()
@@ -666,27 +674,27 @@ export async function fetchBlockUntilTxFound(
 
   return resolveAny(job, [
     {
-      task: async (state) => {
+      handler: async (taskStatus: TaskStatus): Promise<boolean> => {
         return fetchAllHistoricalBlock(
           job,
           trCloned,
           dynamicChainProperties.last_irreversible_block_num,
           previousStatus,
           commitPrefix,
-          state
+          taskStatus
         );
       },
       skip: true,
     },
     {
-      task: async (state) => {
+      handler: async (taskStatus: TaskStatus): Promise<boolean> => {
         return fetchAllNewBlock(
           job,
           tr,
           dynamicChainProperties.last_irreversible_block_num + 1,
           previousStatus,
           commitPrefix,
-          state
+          taskStatus
         );
       },
       skip: false,
@@ -694,7 +702,7 @@ export async function fetchBlockUntilTxFound(
   ]);
 }
 
-export async function withClient<T>(task): Promise<T> {
+export async function withClient<T>(task: () => Promise<T>): Promise<T> {
   return bitshares.then(() => {
     return task();
   });

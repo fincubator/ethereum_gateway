@@ -1,23 +1,24 @@
 import { Job } from 'bullmq';
 import {
-  Sequelize,
-  Model,
-  DataTypes,
-  HasMany,
   BelongsTo,
-  HasManyGetAssociationsMixin,
-  HasManySetAssociationsMixin,
-  HasManyAddAssociationsMixin,
-  HasManyAddAssociationMixin,
-  HasManyRemoveAssociationMixin,
-  HasManyRemoveAssociationsMixin,
-  HasManyCreateAssociationMixin,
-  HasManyHasAssociationMixin,
-  HasManyHasAssociationsMixin,
-  HasManyCountAssociationsMixin,
+  BelongsToCreateAssociationMixin,
   BelongsToGetAssociationMixin,
   BelongsToSetAssociationMixin,
-  BelongsToCreateAssociationMixin,
+  DataTypes,
+  HasMany,
+  HasManyAddAssociationMixin,
+  HasManyAddAssociationsMixin,
+  HasManyCountAssociationsMixin,
+  HasManyCreateAssociationMixin,
+  HasManyGetAssociationsMixin,
+  HasManyHasAssociationMixin,
+  HasManyHasAssociationsMixin,
+  HasManyRemoveAssociationMixin,
+  HasManyRemoveAssociationsMixin,
+  HasManySetAssociationsMixin,
+  Model,
+  Sequelize,
+  Transaction,
 } from 'sequelize';
 
 import * as configs from './config/config.db';
@@ -155,7 +156,7 @@ export class DerivedWallets extends Model {
 
 export type Ticker = 'USDT' | 'FINTEH.USDT';
 
-export type StatusInitial =
+export type TransactionsStatusInitial =
   | 'pending'
   | 'receive_ok'
   | 'issue_commit_ok'
@@ -168,66 +169,68 @@ export type StatusInitial =
   | 'transfer_to_ok';
 
 export type TransactionsStatus =
-  | 'pending'
+  | TransactionsStatusInitial
   | 'receive_pending'
-  | 'receive_ok'
   | 'receive_err'
-  | 'issue_commit_ok'
   | 'issue_commit_err'
   | 'issue_pending'
-  | 'issue_ok'
   | 'issue_err'
-  | 'burn_commit_ok'
   | 'burn_commit_err'
   | 'burn_pending'
-  | 'burn_ok'
   | 'burn_err'
-  | 'transfer_from_commit_ok'
   | 'transfer_from_commit_err'
   | 'transfer_from_pending'
-  | 'transfer_from_ok'
   | 'transfer_from_err'
-  | 'transfer_to_commit_ok'
   | 'transfer_to_commit_err'
   | 'transfer_to_pending'
-  | 'transfer_to_ok'
   | 'transfer_to_err'
   | 'ok';
+
+export interface TransactionsTxRaw {
+  [key: string]: any;
+}
+
+export interface TransactionsTx {
+  tx?: TransactionsTxRaw;
+  txId?: number | string;
+  txIndex?: number;
+  [key: string]: any;
+}
 
 export class Transactions extends Model {
   public id!: number;
 
   public jobId!: string;
 
-  tickerFrom!: Ticker;
+  public tickerFrom!: Ticker;
 
-  amountFrom?: string;
+  public amountFrom?: string;
 
-  tickerTo!: Ticker;
+  public tickerTo!: Ticker;
 
-  amountTo?: string;
+  public amountTo?: string;
 
-  status!: TransactionsStatus;
+  public status!: TransactionsStatus;
 
-  txReceive?: any;
+  public txReceive?: TransactionsTx;
 
-  txReceiveCreatedAt?: Date;
+  public txReceiveCreatedAt?: Date;
 
-  txIssue?: any;
+  public txIssue?: TransactionsTx;
 
-  txIssueCreatedAt?: Date;
+  public txIssueCreatedAt?: Date;
 
-  txBurn?: any;
+  public txBurn?: TransactionsTx;
 
-  txBurnCreatedAt?: Date;
+  public txBurnCreatedAt?: Date;
 
-  txTransferFrom?: any;
+  public txTransferFrom?: TransactionsTx;
 
-  txTransferFromCreatedAt?: Date;
+  public txTransferFromCreatedAt?: Date;
 
-  txTransferTo?: any;
+  public txTransferTo?: TransactionsTx;
 
-  txTransferToCreatedAt?: Date;
+  public txTransferToCreatedAt?: Date;
 
   public walletId!: number;
 
@@ -283,23 +286,23 @@ export async function transactionsCatchAndCommitError<T>(
     const ccCommitPrefix = toCamelCase(commitPrefix);
     const status = `${commitPrefix}_${statusPostfix}` as TransactionsStatus;
 
-    const txPrefix = `tx${
-      ccCommitPrefix.charAt(0).toUpperCase() ?? ''
-    }${ccCommitPrefix.substring(1)}`;
+    const txPrefix = `tx${ccCommitPrefix
+      .charAt(0)
+      .toUpperCase()}${ccCommitPrefix.substring(1)}`;
 
-    await sequelize.transaction(async (transaction) => {
+    await sequelize.transaction(async (transaction: Transaction) => {
       model.status = status;
 
-      const txCommited = model[txPrefix] ?? {};
+      const txCommited: Tx = model[txPrefix] ?? {};
 
       if (error instanceof Error) {
-        txCommited.last_error = {
+        txCommited.lastError = {
           name: error.name,
           message: error.message,
           stacktrace: error.stack,
         };
       } else {
-        txCommited.last_error = error;
+        txCommited.lastError = error;
       }
 
       model[txPrefix] = txCommited;

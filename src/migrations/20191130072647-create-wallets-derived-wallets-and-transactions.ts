@@ -1,32 +1,37 @@
-async function up(queryInterface, Sequelize): Promise<void> {
+import { DataTypes, Op, QueryInterface } from 'sequelize';
+
+async function up(
+  queryInterface: QueryInterface,
+  _DataTypes: any
+): Promise<void> {
   await queryInterface.sequelize.transaction(async (transaction) => {
     await queryInterface.createTable(
       'Wallets',
       {
         id: {
-          type: Sequelize.BIGINT,
+          type: DataTypes.BIGINT,
           primaryKey: true,
           allowNull: false,
           autoIncrement: true,
           autoIncrementIdentity: true,
         },
         payment: {
-          type: Sequelize.ENUM('ethereum', 'bitshares'),
+          type: DataTypes.ENUM('ethereum', 'bitshares'),
           allowNull: false,
         },
-        invoice: { type: Sequelize.JSONB, allowNull: false },
+        invoice: { type: DataTypes.JSONB, allowNull: false },
         createdAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
         updatedAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
-        deletedAt: Sequelize.DATE,
-        version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+        deletedAt: DataTypes.DATE,
+        version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
       },
       { transaction }
     );
@@ -38,36 +43,36 @@ async function up(queryInterface, Sequelize): Promise<void> {
       'DerivedWallets',
       {
         id: {
-          type: Sequelize.BIGINT,
+          type: DataTypes.BIGINT,
           primaryKey: true,
           allowNull: false,
           autoIncrement: true,
           autoIncrementIdentity: true,
         },
         walletId: {
-          type: Sequelize.BIGINT,
+          type: DataTypes.BIGINT,
           allowNull: false,
           references: { model: 'Wallets', key: 'id' },
           onUpdate: 'cascade',
           onDelete: 'cascade',
         },
         payment: {
-          type: Sequelize.ENUM('ethereum', 'bitshares'),
+          type: DataTypes.ENUM('ethereum', 'bitshares'),
           allowNull: false,
         },
-        invoice: { type: Sequelize.JSONB, allowNull: false },
+        invoice: { type: DataTypes.JSONB, allowNull: false },
         createdAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
         updatedAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
-        deletedAt: Sequelize.DATE,
-        version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+        deletedAt: DataTypes.DATE,
+        version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
       },
       { transaction }
     );
@@ -88,37 +93,37 @@ async function up(queryInterface, Sequelize): Promise<void> {
       'Transactions',
       {
         id: {
-          type: Sequelize.BIGINT,
+          type: DataTypes.BIGINT,
           primaryKey: true,
           allowNull: false,
           autoIncrement: true,
           autoIncrementIdentity: true,
         },
         jobId: {
-          type: Sequelize.UUID,
+          type: DataTypes.UUID,
           unique: true,
           allowNull: false,
-          defaultValue: Sequelize.UUIDV4,
+          defaultValue: DataTypes.UUIDV4,
         },
         walletId: {
-          type: Sequelize.BIGINT,
+          type: DataTypes.BIGINT,
           allowNull: false,
           references: { model: 'DerivedWallets', key: 'id' },
           onUpdate: 'cascade',
           onDelete: 'cascade',
         },
         tickerFrom: {
-          type: Sequelize.ENUM('USDT', 'FINTEH.USDT'),
+          type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
           allowNull: false,
         },
-        amountFrom: Sequelize.DECIMAL(40, 20).UNSIGNED,
+        amountFrom: DataTypes.DECIMAL(40, 20).UNSIGNED,
         tickerTo: {
-          type: Sequelize.ENUM('USDT', 'FINTEH.USDT'),
+          type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
           allowNull: false,
         },
-        amountTo: Sequelize.DECIMAL(40, 20).UNSIGNED,
+        amountTo: DataTypes.DECIMAL(40, 20).UNSIGNED,
         status: {
-          type: Sequelize.ENUM(
+          type: DataTypes.ENUM(
             'pending',
             'receive_pending',
             'receive_ok',
@@ -148,28 +153,28 @@ async function up(queryInterface, Sequelize): Promise<void> {
           allowNull: false,
           defaultValue: 'pending',
         },
-        txReceive: Sequelize.JSONB,
-        txReceiveCreatedAt: Sequelize.DATE,
-        txIssue: Sequelize.JSONB,
-        txIssueCreatedAt: Sequelize.DATE,
-        txBurn: Sequelize.JSONB,
-        txBurnCreatedAt: Sequelize.DATE,
-        txTransferFrom: Sequelize.JSONB,
-        txTransferFromCreatedAt: Sequelize.DATE,
-        txTransferTo: Sequelize.JSONB,
-        txTransferToCreatedAt: Sequelize.DATE,
+        txReceive: DataTypes.JSONB,
+        txReceiveCreatedAt: DataTypes.DATE,
+        txIssue: DataTypes.JSONB,
+        txIssueCreatedAt: DataTypes.DATE,
+        txBurn: DataTypes.JSONB,
+        txBurnCreatedAt: DataTypes.DATE,
+        txTransferFrom: DataTypes.JSONB,
+        txTransferFromCreatedAt: DataTypes.DATE,
+        txTransferTo: DataTypes.JSONB,
+        txTransferToCreatedAt: DataTypes.DATE,
         createdAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
         updatedAt: {
-          type: Sequelize.DATE,
+          type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: Sequelize.NOW,
+          defaultValue: DataTypes.NOW,
         },
-        deletedAt: Sequelize.DATE,
-        version: { type: Sequelize.INTEGER, allowNull: false, defaultValue: 0 },
+        deletedAt: DataTypes.DATE,
+        version: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
       },
       { transaction }
     );
@@ -180,9 +185,9 @@ async function up(queryInterface, Sequelize): Promise<void> {
         transaction,
         type: 'check',
         where: {
-          amountFrom: { [Sequelize.Op.gte]: 0 },
+          amountFrom: { [Op.gte]: 0 },
           amountTo: {
-            [Sequelize.Op.gte]: 0,
+            [Op.gte]: 0,
           },
         },
       }
@@ -190,7 +195,10 @@ async function up(queryInterface, Sequelize): Promise<void> {
   });
 }
 
-async function down(queryInterface, Sequelize): Promise<void> {
+async function down(
+  queryInterface: QueryInterface,
+  _DataTypes: any
+): Promise<void> {
   queryInterface.sequelize.transaction(async (transaction) => {
     await queryInterface.dropTable('Transactions', { transaction });
     await queryInterface.dropTable('DerivedWallets', { transaction });

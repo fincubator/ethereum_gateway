@@ -1,13 +1,13 @@
-import express from 'express';
+import compression from 'compression';
 import errorhandler from 'errorhandler';
+import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import compression from 'compression';
 
-import * as configs from './config/config.app';
+import { applicationConfigs } from './config/config.app';
 
 const env = process.env.NODE_ENV ?? 'development';
-export const appConfig = configs[env];
+export const appConfig = applicationConfigs[env];
 export const app = express();
 
 if (process.env.NODE_ENV === 'development') {
@@ -32,5 +32,5 @@ app
   .use(express.urlencoded({ extended: true }))
   .use(express.json());
 
-export const onStart = [];
-export const onSignal = [];
+export const onStart: Promise<void>[] = [];
+export const onSignal: Promise<void>[] = [];

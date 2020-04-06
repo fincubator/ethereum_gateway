@@ -1,20 +1,20 @@
+import EthereumHDKey from 'ethereumjs-wallet/hdkey';
 import { Application, Request, Response } from 'express';
 import { Sequelize, Op as SequelizeOp } from 'sequelize';
-import EthereumHDKey from 'ethereumjs-wallet/hdkey';
 
 import { app, appConfig } from './app';
 import {
-  sequelize,
-  Wallets as WalletsModel,
   DerivedWallets as DerivedWalletsModel,
   Transactions as TransactionsModel,
+  Wallets as WalletsModel,
+  sequelize,
 } from './models';
 import { queue } from './queue';
 
 class UnknownPayment extends Error {}
 
 async function getTransaction(rq: Request, rs: Response): Promise<void> {
-  const tx = await sequelize.transaction(async (transaction) => {
+  const tr = await sequelize.transaction(async (transaction) => {
     return TransactionsModel.findByPk(rq.params.id, {
       attributes: [
         'tickerFrom',
@@ -61,10 +61,10 @@ async function getTransaction(rq: Request, rs: Response): Promise<void> {
     });
   });
 
-  if (tx === null) {
+  if (tr === null) {
     await rs.status(404).json({});
   } else {
-    await rs.status(200).json(tx.toJSON());
+    await rs.status(200).json(tr.toJSON());
   }
 }
 
@@ -145,7 +145,7 @@ async function postTransaction(rq: Request, rs: Response): Promise<void> {
       })
     )[0];
 
-    const job = await queue.getJob(tr.jobId);
+    const job = (await queue.getJob(tr.jobId)) ?? null;
 
     if (job === null) {
       await queue.add(

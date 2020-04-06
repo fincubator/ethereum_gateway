@@ -8,7 +8,8 @@ export const production = {
   database: 'payment-gateway',
   isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
 };
-const development = {
+
+export const development = {
   dialect: 'postgres',
   host: 'db',
   username: 'payment-gateway',
@@ -17,7 +18,8 @@ const development = {
   isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
   logQueryParameters: true,
 };
-const test = {
+
+export const test = {
   dialect: 'sqlite',
   storage: ':memory:',
   isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,

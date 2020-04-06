@@ -1,5 +1,5 @@
+import { Job, Worker } from 'bullmq';
 import IORedis from 'ioredis';
-import { Worker } from 'bullmq';
 
 import { jobs } from './jobs';
 
@@ -7,10 +7,10 @@ const connection = new IORedis(6379, 'memory_db');
 
 export const worker = new Worker(
   'PaymentGateway',
-  async (job) => {
+  async (job: Job) => {
     await jobs[job.name](job);
   },
   { connection }
-).on('failed', (job, error) => {
+).on('failed', (job: Job, error) => {
   console.error(`Job ${job.id} failed with:`, error);
 });

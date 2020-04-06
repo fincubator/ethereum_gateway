@@ -1,34 +1,36 @@
 import { Job } from 'bullmq';
+import { Transaction } from 'sequelize';
 
-import { appConfig } from './app';
 import {
-  sequelize,
-  Wallets as WalletsModel,
+  processTx as bitsharesProcessTx,
+  txBurn as bitsharesTxBurn,
+  txCommit as bitsharesTxCommit,
+  txIssue as bitsharesTxIssue,
+  withClient as bitsharesWithClient,
+  fetchBlockUntilTxFound as bitsharesfetchBlockUntilTxFound,
+} from './bitshares';
+import {
   DerivedWallets as DerivedWalletsModel,
   Transactions as TransactionsModel,
+  Wallets as WalletsModel,
+  sequelize,
   transactionsCatchAndCommitError,
 } from './models';
 import {
+  fetchBlockUntilTxFound as web3FetchBlockUntilTxFound,
   processTx as web3ProcessTx,
   txTransferTo as web3TxTransferTo,
-  fetchBlockUntilTxFound as web3FetchBlockUntilTxFound,
 } from './web3';
-import {
-  processTx as bitsharesProcessTx,
-  txCommit as bitsharesTxCommit,
-  txIssue as bitsharesTxIssue,
-  txBurn as bitsharesTxBurn,
-  fetchBlockUntilTxFound as bitsharesfetchBlockUntilTxFound,
-  withClient as bitsharesWithClient,
-} from './bitshares';
 
-class TxNotFound extends Error {}
+export class TrNotFound extends Error {}
 
-class UnknownStatus extends Error {}
+export class TxNotFound extends Error {}
 
-async function ethereumToBitsharesJob(job: Job): Promise<void> {
-  const tr = await sequelize.transaction(async (transaction) => {
-    const tr = await TransactionsModel.findOne({
+export class UnknownStatus extends Error {}
+
+export async function ethereumToBitsharesJob(job: Job): Promise<void> {
+  const tr = await sequelize.transaction(async (transaction: Transaction) => {
+    const maybeTr = await TransactionsModel.findOne({
       where: { jobId: job.id },
       include: [
         {
@@ -40,7 +42,11 @@ async function ethereumToBitsharesJob(job: Job): Promise<void> {
       transaction,
     });
 
-    return tr!;
+    if (maybeTr === null) {
+      throw new TrNotFound();
+    }
+
+    return maybeTr;
   });
 
   if (
@@ -103,7 +109,7 @@ async function ethereumToBitsharesJob(job: Job): Promise<void> {
       'issue'
     );
 
-    if (result === false) {
+    if (!result) {
       throw new TxNotFound();
     }
   }
@@ -121,9 +127,9 @@ async function ethereumToBitsharesJob(job: Job): Promise<void> {
   throw new UnknownStatus();
 }
 
-async function bitsharesToEthereumJob(job: Job): Promise<void> {
-  const tr = await sequelize.transaction(async (transaction) => {
-    const tr = await TransactionsModel.findOne({
+export async function bitsharesToEthereumJob(job: Job): Promise<void> {
+  const tr = await sequelize.transaction(async (transaction: Transaction) => {
+    const maybeTr = await TransactionsModel.findOne({
       where: { jobId: job.id },
       include: [
         {
@@ -135,7 +141,11 @@ async function bitsharesToEthereumJob(job: Job): Promise<void> {
       transaction,
     });
 
-    return tr!;
+    if (maybeTr === null) {
+      throw new TrNotFound();
+    }
+
+    return maybeTr;
   });
 
   if (
@@ -154,7 +164,7 @@ async function bitsharesToEthereumJob(job: Job): Promise<void> {
       'receive'
     );
 
-    if (result === false) {
+    if (!result) {
       throw new TxNotFound();
     }
   }
@@ -200,7 +210,7 @@ async function bitsharesToEthereumJob(job: Job): Promise<void> {
       'burn'
     );
 
-    if (result === false) {
+    if (!result) {
       throw new TxNotFound();
     }
   }
@@ -241,7 +251,7 @@ async function bitsharesToEthereumJob(job: Job): Promise<void> {
   }
 
   if (tr.status === 'transfer_to_ok') {
-    await sequelize.transaction(async (transaction) => {
+    await sequelize.transaction(async (transaction: Transaction) => {
       tr.status = 'ok';
 
       await tr.save({ transaction });
@@ -253,7 +263,11 @@ async function bitsharesToEthereumJob(job: Job): Promise<void> {
   throw new UnknownStatus();
 }
 
-export const jobs = {
+export interface Jobs {
+  [key: string]: (job: Job) => Promise<void>;
+}
+
+export const jobs: Jobs = {
   'payment:ethereum:bitshares': ethereumToBitsharesJob,
   'payment:bitshares:ethereum': bitsharesToEthereumJob,
 };
