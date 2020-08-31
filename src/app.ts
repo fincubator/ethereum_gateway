@@ -20,12 +20,8 @@ app
     helmet({
       dnsPrefetchControl: { allow: false },
       frameguard: { action: 'deny' },
-      hidePoweredBy: { setTo: 'PHP/5.6.40' },
-      ieNoOpen: true,
-      noSniff: true,
       permittedCrossDomainPolicies: { permittedPolicies: 'none' },
       referrerPolicy: { policy: 'no-referrer' },
-      xssFilter: { setOnOldIE: true },
     })
   )
   .use(compression())

@@ -1,9 +1,9 @@
 version: '2.0'
 services:
   memory_db:
-    image: redis:5.0.7-buster
+    image: redis:5.0.9-buster
   db:
-    image: postgres:12.1
+    image: postgres:12.4
     environment:
       POSTGRES_USER: "${DB_USERNAME}"
       POSTGRES_PASSWORD: "${DB_PASSWORD}"
@@ -20,8 +20,10 @@ services:
       - DB_PASSWORD
       - DB_DATABASE
       - MEMORY_DB_HOST
+      - MEMORY_DB_PORT
       - MEMORY_DB_USERNAME
       - MEMORY_DB_PASSWORD
+      - BOOKER_PROVIDER
       - ETHEREUM_COLD_KEY
       - ETHEREUM_SIGN_KEY
       - WEB3_PROVIDER
@@ -40,3 +42,5 @@ services:
     depends_on:
       - memory_db
       - db
+    ports:
+      - '8080:${PORT}'

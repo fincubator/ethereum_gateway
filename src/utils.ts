@@ -1,10 +1,7 @@
-import { Job } from 'bullmq';
+import os from 'os';
+import util from 'util';
 
-export function toCamelCase(snakeCase: string): string {
-  return snakeCase.replace(/_[a-z]/gi, (snakeCaseTmp: string) => {
-    return snakeCaseTmp.toUpperCase().replace('_', '');
-  });
-}
+import type { Job } from 'bullmq';
 
 export function* range(
   start: number,
@@ -21,7 +18,7 @@ export function* range(
 }
 
 export interface TaskStatus {
-  resolved(): boolean;
+  resolved: () => boolean;
 }
 
 export interface TaskHandler {
@@ -62,7 +59,11 @@ export async function resolveAny(job: Job, tasks: Task[]): Promise<boolean> {
           },
           (error) => {
             if (rejectedNumber < requiredRejects) {
-              console.error(`Some task in job ${job.id} failed with:`, error);
+              console.error(
+                `Some task in job ${inspect(job.id)} failed with: ${inspect(
+                  error
+                )}`
+              );
 
               if (!task.skip) {
                 rejectedNumber += 1;
@@ -72,11 +73,26 @@ export async function resolveAny(job: Job, tasks: Task[]): Promise<boolean> {
                 state.resolved = true;
                 reject(error);
               } else {
-                console.error(`Some task in job ${job.id} failed with:`, error);
+                console.error(
+                  `Some task in job ${inspect(job.id)} failed with:${
+                    os.EOL
+                  }${inspect(error)}`
+                );
               }
             }
           }
         );
     }
+  });
+}
+
+export function inspect(data: any): string {
+  return util.inspect(data, {
+    showProxy: true,
+    showHidden: true,
+    maxArrayLength: Infinity,
+    maxStringLength: Infinity,
+    depth: Infinity,
+    colors: true,
   });
 }

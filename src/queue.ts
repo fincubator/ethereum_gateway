@@ -13,7 +13,7 @@ const connection = new IORedis(
   }
 );
 
-export const queue = new Queue('PaymentGateway', { connection });
+export default new Queue('PaymentGateway', { connection });
 
 /*
 onStart.push(

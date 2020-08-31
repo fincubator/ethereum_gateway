@@ -1,10 +1,9 @@
 import { Job } from 'bullmq';
-import {
+import type {
   BelongsTo,
   BelongsToCreateAssociationMixin,
   BelongsToGetAssociationMixin,
   BelongsToSetAssociationMixin,
-  DataTypes,
   HasMany,
   HasManyAddAssociationMixin,
   HasManyAddAssociationsMixin,
@@ -16,13 +15,10 @@ import {
   HasManyRemoveAssociationMixin,
   HasManyRemoveAssociationsMixin,
   HasManySetAssociationsMixin,
-  Model,
-  Sequelize,
-  Transaction,
 } from 'sequelize';
+import { DataTypes, Model, Sequelize, Transaction } from 'sequelize';
 
 import * as configs from './config/config.db';
-import { toCamelCase } from './utils';
 
 const env = process.env.NODE_ENV ?? 'development';
 const config = configs[env];
@@ -47,7 +43,7 @@ export class Wallets extends Model {
 
   public payment?: Payment;
 
-  public invoice?: any;
+  public invoice?: string;
 
   public readonly derivedWallets?: DerivedWallets[];
 
@@ -102,13 +98,13 @@ export class DerivedWallets extends Model {
 
   public payment?: Payment;
 
-  public invoice?: any;
+  public invoice?: string;
 
   public walletId!: number;
 
   public readonly wallet?: Wallets;
 
-  public readonly transactions?: Transactions[];
+  public readonly orders?: Orders[];
 
   public readonly createdAt!: Date;
 
@@ -118,7 +114,7 @@ export class DerivedWallets extends Model {
 
   public static associations: {
     wallet: BelongsTo<DerivedWallets, Wallets>;
-    transactions: HasMany<DerivedWallets, Transactions>;
+    orders: HasMany<DerivedWallets, Orders>;
   };
 
   public getWallet!: BelongsToGetAssociationMixin<Wallets>;
@@ -127,114 +123,85 @@ export class DerivedWallets extends Model {
 
   public createWallet!: BelongsToCreateAssociationMixin<Wallets>;
 
-  public getTransactions!: HasManyGetAssociationsMixin<Transactions>;
+  public getOrders!: HasManyGetAssociationsMixin<Orders>;
 
-  public setTransactions!: HasManySetAssociationsMixin<Transactions, number>;
+  public setOrders!: HasManySetAssociationsMixin<Orders, string>;
 
-  public addTransactions!: HasManyAddAssociationsMixin<Transactions, number>;
+  public addOrders!: HasManyAddAssociationsMixin<Orders, string>;
 
-  public addTransaction!: HasManyAddAssociationMixin<Transactions, number>;
+  public addOrder!: HasManyAddAssociationMixin<Orders, string>;
 
-  public removeTransaction!: HasManyRemoveAssociationMixin<
-    Transactions,
-    number
-  >;
+  public removeOrders!: HasManyRemoveAssociationsMixin<Orders, string>;
 
-  public removeTransactions!: HasManyRemoveAssociationsMixin<
-    Transactions,
-    number
-  >;
+  public removeOrder!: HasManyRemoveAssociationMixin<Orders, string>;
 
-  public createTransactions!: HasManyCreateAssociationMixin<Transactions>;
+  public createOrder!: HasManyCreateAssociationMixin<Orders>;
 
-  public hasTransaction!: HasManyHasAssociationMixin<Transactions, number>;
+  public hasOrders!: HasManyHasAssociationsMixin<Orders, string>;
 
-  public hasTransactions!: HasManyHasAssociationsMixin<Transactions, number>;
+  public hasOrder!: HasManyHasAssociationMixin<Orders, string>;
 
-  public countTransactions!: HasManyCountAssociationsMixin;
+  public countOrders!: HasManyCountAssociationsMixin;
 }
 
-export type Ticker = 'USDT' | 'FINTEH.USDT';
+export type Coin = 'USDT' | 'FINTEH.USDT';
 
-export type TransactionsStatusInitial =
-  | 'pending'
-  | 'receive_ok'
-  | 'issue_commit_ok'
-  | 'issue_ok'
-  | 'burn_commit_ok'
-  | 'burn_ok'
-  | 'transfer_from_commit_ok'
-  | 'transfer_from_ok'
-  | 'transfer_to_commit_ok'
-  | 'transfer_to_ok';
-
-export type TransactionsStatus =
-  | TransactionsStatusInitial
-  | 'receive_pending'
-  | 'receive_err'
-  | 'issue_commit_err'
-  | 'issue_pending'
-  | 'issue_err'
-  | 'burn_commit_err'
-  | 'burn_pending'
-  | 'burn_err'
-  | 'transfer_from_commit_err'
-  | 'transfer_from_pending'
-  | 'transfer_from_err'
-  | 'transfer_to_commit_err'
-  | 'transfer_to_pending'
-  | 'transfer_to_err'
-  | 'ok';
-
-export interface TransactionsTxRaw {
+export interface TxRaw {
   [key: string]: any;
 }
 
-export interface TransactionsTx {
-  tx?: TransactionsTxRaw;
-  txId?: number | string;
-  txIndex?: number;
-  [key: string]: any;
+export class Txs extends Model {
+  public id!: string;
+
+  public coin!: Coin;
+
+  public txId?: string;
+
+  public fromAddress?: string;
+
+  public toAddress?: string;
+
+  public amount!: string;
+
+  public txCreatedAt!: Date;
+
+  public confirmations!: number;
+
+  public maxConfirmations!: number;
+
+  public tx?: TxRaw;
+
+  public readonly createdAt!: Date;
+
+  public readonly updatedAt!: Date;
+
+  public readonly version!: number;
 }
 
-export class Transactions extends Model {
-  public id!: number;
+export type OrderType = 'TRASH' | 'DEPOSIT' | 'WITHDRAWAL';
+
+export type OrderParty = 'INIT' | 'IN_CREATED' | 'OUT_CREATED';
+
+export class Orders extends Model {
+  public id!: string;
 
   public jobId!: string;
-
-  public tickerFrom!: Ticker;
-
-  public amountFrom?: string;
-
-  public tickerTo!: Ticker;
-
-  public amountTo?: string;
-
-  public status!: TransactionsStatus;
-
-  public txReceive?: TransactionsTx;
-
-  public txReceiveCreatedAt?: Date;
-
-  public txIssue?: TransactionsTx;
-
-  public txIssueCreatedAt?: Date;
-
-  public txBurn?: TransactionsTx;
-
-  public txBurnCreatedAt?: Date;
-
-  public txTransferFrom?: TransactionsTx;
-
-  public txTransferFromCreatedAt?: Date;
-
-  public txTransferTo?: TransactionsTx;
-
-  public txTransferToCreatedAt?: Date;
 
   public walletId!: number;
 
   public readonly derivedWallet?: DerivedWallets;
+
+  public type!: OrderType;
+
+  public party!: OrderParty;
+
+  public inTxId!: string;
+
+  public readonly inTx?: Txs;
+
+  public outTxId!: string;
+
+  public readonly outTx?: Txs;
 
   public readonly createdAt!: Date;
 
@@ -243,7 +210,9 @@ export class Transactions extends Model {
   public readonly version!: number;
 
   public static associations: {
-    derivedWallet: BelongsTo<Transactions, DerivedWallets>;
+    derivedWallet: BelongsTo<Orders, DerivedWallets>;
+    inTx: BelongsTo<Orders, Txs>;
+    outTx: BelongsTo<Orders, Txs>;
   };
 
   public getDerivedWallet!: BelongsToGetAssociationMixin<DerivedWallets>;
@@ -254,80 +223,37 @@ export class Transactions extends Model {
   >;
 
   public createDerivedWallet!: BelongsToCreateAssociationMixin<DerivedWallets>;
+
+  public getInTx!: BelongsToGetAssociationMixin<Txs>;
+
+  public setInTx!: BelongsToSetAssociationMixin<Txs, string>;
+
+  public createInTx!: BelongsToCreateAssociationMixin<Txs>;
+
+  public getOutTx!: BelongsToGetAssociationMixin<Txs>;
+
+  public setOutTx!: BelongsToSetAssociationMixin<Txs, string>;
+
+  public createOutTx!: BelongsToCreateAssociationMixin<Txs>;
 }
 
-export type Task<T> = () => Promise<T>;
-
-export type TransactionsCommitPrefix =
-  | 'receive'
-  | 'issue'
-  | 'burn'
-  | 'transfer_from'
-  | 'transfer_to';
-
-export type TransactionsStatusPostfix = '' | 'commit';
-
-export async function transactionsCatchAndCommitError<T>(
-  job: Job,
-  model: Transactions,
-  task: Task<T>,
-  commitPrefix: TransactionsCommitPrefix,
-  statusPostfix: TransactionsStatusPostfix = ''
-): Promise<T> {
-  try {
-    return await task();
-  } catch (error) {
-    if (statusPostfix.length > 0) {
-      statusPostfix += '_';
-    }
-
-    statusPostfix += 'err';
-
-    const ccCommitPrefix = toCamelCase(commitPrefix);
-    const status = `${commitPrefix}_${statusPostfix}` as TransactionsStatus;
-
-    const txPrefix = `tx${ccCommitPrefix
-      .charAt(0)
-      .toUpperCase()}${ccCommitPrefix.substring(1)}`;
-
-    await sequelize.transaction(async (transaction: Transaction) => {
-      model.status = status;
-
-      const txCommited: Tx = model[txPrefix] ?? {};
-
-      if (error instanceof Error) {
-        txCommited.lastError = {
-          name: error.name,
-          message: error.message,
-          stacktrace: error.stack,
-        };
-      } else {
-        txCommited.lastError = error;
-      }
-
-      model[txPrefix] = txCommited;
-
-      await model.save({ transaction });
-    });
-
-    throw error;
-  }
+export interface Task<T> {
+  (): Promise<T>;
 }
 
 Wallets.init(
   {
     id: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.UUID,
       primaryKey: true,
       allowNull: false,
-      autoIncrement: true,
-      autoIncrementIdentity: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     payment: {
       type: DataTypes.ENUM('ethereum', 'bitshares'),
       allowNull: false,
     },
-    invoice: { type: DataTypes.JSONB, allowNull: false },
+    invoice: { type: DataTypes.STRING, allowNull: false },
   },
   {
     sequelize,
@@ -341,17 +267,16 @@ Wallets.init(
 DerivedWallets.init(
   {
     id: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.UUID,
       primaryKey: true,
       allowNull: false,
-      autoIncrement: true,
-      autoIncrementIdentity: true,
+      defaultValue: DataTypes.UUIDV4,
     },
     payment: {
       type: DataTypes.ENUM('ethereum', 'bitshares'),
       allowNull: false,
     },
-    invoice: { type: DataTypes.JSONB, allowNull: false },
+    invoice: { type: DataTypes.STRING, allowNull: false },
   },
   {
     sequelize,
@@ -362,14 +287,55 @@ DerivedWallets.init(
   }
 );
 
-Transactions.init(
+Txs.init(
   {
     id: {
-      type: DataTypes.BIGINT,
+      type: DataTypes.UUID,
       primaryKey: true,
       allowNull: false,
-      autoIncrement: true,
-      autoIncrementIdentity: true,
+      defaultValue: DataTypes.UUIDV4,
+    },
+    coin: {
+      type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
+      allowNull: false,
+    },
+    txId: DataTypes.STRING,
+    fromAddress: DataTypes.STRING,
+    toAddress: DataTypes.STRING,
+    amount: DataTypes.DECIMAL(78, 36).UNSIGNED,
+    txCreatedAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
+    },
+    confirmations: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    maxConfirmations: {
+      type: DataTypes.INTEGER.UNSIGNED,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    tx: { type: DataTypes.JSONB, allowNull: true },
+  },
+  {
+    sequelize,
+    timestamps: true,
+    paranoid: true,
+    version: true,
+    initialAutoIncrement: true,
+  }
+);
+
+Orders.init(
+  {
+    id: {
+      type: DataTypes.UUID,
+      primaryKey: true,
+      allowNull: false,
+      defaultValue: DataTypes.UUIDV4,
     },
     jobId: {
       type: DataTypes.UUID,
@@ -377,54 +343,10 @@ Transactions.init(
       allowNull: false,
       defaultValue: DataTypes.UUIDV4,
     },
-    tickerFrom: {
-      type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
+    type: {
+      type: DataTypes.ENUM('TRASH', 'DEPOSIT', 'WITHDRAWAL'),
       allowNull: false,
     },
-    amountFrom: DataTypes.DECIMAL(40, 20).UNSIGNED,
-    tickerTo: { type: DataTypes.ENUM('USDT', 'FINTEH.USDT'), allowNull: false },
-    amountTo: DataTypes.DECIMAL(40, 20).UNSIGNED,
-    status: {
-      type: DataTypes.ENUM(
-        'pending',
-        'receive_pending',
-        'receive_ok',
-        'receive_err',
-        'issue_commit_ok',
-        'issue_commit_err',
-        'issue_pending',
-        'issue_ok',
-        'issue_err',
-        'burn_commit_ok',
-        'burn_commit_err',
-        'burn_pending',
-        'burn_ok',
-        'burn_err',
-        'transfer_from_commit_ok',
-        'transfer_from_commit_err',
-        'transfer_from_pending',
-        'transfer_from_ok',
-        'transfer_from_err',
-        'transfer_to_commit_ok',
-        'transfer_to_commit_err',
-        'transfer_to_pending',
-        'transfer_to_ok',
-        'transfer_to_err',
-        'ok'
-      ),
-      allowNull: false,
-      defaultValue: 'pending',
-    },
-    txReceive: DataTypes.JSONB,
-    txReceiveCreatedAt: DataTypes.DATE,
-    txIssue: DataTypes.JSONB,
-    txIssueCreatedAt: DataTypes.DATE,
-    txBurn: DataTypes.JSONB,
-    txBurnCreatedAt: DataTypes.DATE,
-    txTransferFrom: DataTypes.JSONB,
-    txTransferFromCreatedAt: DataTypes.DATE,
-    txTransferTo: DataTypes.JSONB,
-    txTransferToCreatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -439,12 +361,25 @@ Wallets.hasMany(DerivedWallets, {
   as: 'derivedWallets',
   foreignKey: 'walletId',
 });
+
 DerivedWallets.belongsTo(Wallets, { as: 'wallet', foreignKey: 'walletId' });
-DerivedWallets.hasMany(Transactions, {
+
+DerivedWallets.hasMany(Orders, {
   as: 'transactions',
   foreignKey: 'walletId',
 });
-Transactions.belongsTo(DerivedWallets, {
+
+Orders.belongsTo(DerivedWallets, {
   as: 'derivedWallet',
   foreignKey: 'walletId',
+});
+
+Orders.belongsTo(Txs, {
+  as: 'inTx',
+  foreignKey: 'inTxId',
+});
+
+Orders.belongsTo(Txs, {
+  as: 'outTx',
+  foreignKey: 'outTxId',
 });

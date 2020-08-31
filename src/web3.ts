@@ -1,40 +1,36 @@
-import { EventEmitter } from 'events';
+import type { EventEmitter } from 'events';
 
-import { Job } from 'bullmq';
+import type { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
-import { Op as SequelizeOp, Transaction } from 'sequelize';
+import type { Transaction } from 'sequelize';
 import Web3 from 'web3';
-import { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
-//import { Contract, ContractOptions, EventData } from 'web3-eth-contract';
-import { AbiType, StateMutabilityType } from 'web3-utils';
+import type { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
+import type { EventData } from 'web3-eth-contract';
+import { Contract, ContractOptions } from 'web3-eth-contract';
+import type { AbiType, StateMutabilityType } from 'web3-utils';
 
 import { appConfig } from './app';
-import {
-  DerivedWallets as DerivedWalletsModel,
-  Transactions as TransactionsModel,
-  TransactionsCommitPrefix as TransactionsModelCommitPrefix,
-  TransactionsStatus as TransactionsModelStatus,
-  TransactionsStatusInitial as TransactionsModelStatusInitial,
-  TransactionsTx as TransactionsModelTx,
-  TransactionsTxRaw as TransactionsModelTxRaw,
-  Wallets as WalletsModel,
-  sequelize,
-} from './models';
-import { TaskStatus, range, resolveAny, toCamelCase } from './utils';
+import type { TxRaw } from './models';
+import { Orders, Txs, sequelize } from './models';
+import type { TaskStatus } from './utils';
+import { inspect, range, resolveAny } from './utils';
+import { bookerProvider } from './rpc';
 
-export class TrNotFound extends Error {}
+export class OrderNotFound extends Error {}
 
-export class TrDeriveWalletNotFound extends Error {}
+export class OrderUnknownType extends Error {}
 
-export class TrDeriveWalletInvoiceNotFound extends Error {}
+export class TxSignError extends Error {}
 
-export class TrAmountFromNotFound extends Error {}
+export class OrderUnknownInTx extends Error {}
 
-export class UnknownTicker extends Error {}
+export class OrderUnknownOutTx extends Error {}
 
-export class UnknownTickerFrom extends UnknownTicker {}
+export class OrderTxUnknownCoinFrom extends Error {}
 
-export class UnknownTickerTo extends UnknownTicker {}
+export class OrderTxUnknownCoinTo extends Error {}
+
+export class OrderTxUnknownToAddress extends Error {}
 
 export class TransferEventDeclDoesntExist extends Error {}
 
@@ -51,14 +47,14 @@ export interface Tx {
 
 export interface TxObject<T> {
   arguments: any[];
-  call(tx?: Tx): Promise<T>;
-  send(tx?: Tx): PromiEvent<T>;
-  estimateGas(tx?: Tx): Promise<number>;
-  encodeABI(): string;
+  call: (tx?: Tx) => Promise<T>;
+  send: (tx?: Tx) => PromiEvent<T>;
+  estimateGas: (tx?: Tx) => Promise<number>;
+  encodeABI: () => string;
 }
 
 export interface EventOptions {
-  filter?: object;
+  filter?: Record<string, unknown>;
   fromBlock?: 'latest' | 'pending' | 'genesis' | number;
   topics?: string[];
 }
@@ -71,13 +67,17 @@ export interface ContractEventLog<T> extends EventLog {
   returnValues: T;
 }
 
-export interface ContractEventEmitter<T> extends EventEmitter {
-  on(event: 'connected', listener: (subscriptionId: string) => void): this;
-  on(
+export interface ContractEventOn<E, T> {
+  (event: 'connected', listener: (subscriptionId: string) => void): E;
+  (
     event: 'data' | 'changed',
     listener: (event: ContractEventLog<T>) => void
   ): this;
-  on(event: 'error', listener: (error: Error) => void): this;
+  (event: 'error', listener: (error: Error) => void): E;
+}
+
+export interface ContractEventEmitter<T> extends EventEmitter {
+  on: ContractEventOn<this, T>;
 }
 
 export interface ContractEvent<T> {
@@ -108,27 +108,27 @@ export interface ApprovalEvent {
 /*
 export class ERC20Contract extends Contract {
   public methods: {
-    name(): TxObject<string>;
+    name: () => TxObject<string>;
 
-    symbol(): TxObject<string>;
+    symbol: () => TxObject<string>;
 
-    decimals(): TxObject<string>;
+    decimals: () => TxObject<string>;
 
-    totalSupply(): TxObject<string>;
+    totalSupply: () => TxObject<string>;
 
-    balanceOf(owner: string): TxObject<string>;
+    balanceOf: (owner: string) => TxObject<string>;
 
-    transfer(to: string, amount: number | string): TxObject<void>;
+    transfer: (to: string, amount: number | string) => TxObject<void>;
 
-    transferFrom(
+    transferFrom: (
       from: string,
       to: string,
       amount: number | string
-    ): TxObject<void>;
+    ) => TxObject<void>;
 
-    approve(spender: string, amount: number | string): TxObject<void>;
+    approve: (spender: string, amount: number | string) => TxObject<void>;
 
-    allowance(owner: string, spender: string): TxObject<string>;
+    allowance: (owner: string, spender: string) => TxObject<string>;
   };
 
   public events: {
@@ -146,7 +146,7 @@ export class ERC20Contract extends Contract {
     options?: ContractOptions
   );
 
-  public clone(): ERC20Contract;
+  public clone(): this;
 }
 */
 
@@ -364,50 +364,55 @@ export const erc20Contracts: ERC20Contracts = {
   USDT: new web3.eth.Contract(erc20Abi, appConfig.ethereumUSDTAddress),
 };
 
+type TxType = 'in' | 'out';
+
 export async function txTransferTo(
   _job: Job,
-  tr: TransactionsModel,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix
-): Promise<TransactionsModelTxRaw> {
-  if (typeof tr.derivedWallet === 'undefined') {
-    throw new TrDeriveWalletNotFound();
+  order: Orders
+): Promise<TxRaw | null> {
+  if (order.type !== 'WITHDRAWAL') {
+    throw new OrderUnknownType();
   }
 
-  if (tr.derivedWallet.invoice === null) {
-    throw new TrDeriveWalletInvoiceNotFound();
+  if (typeof order.inTx === 'undefined') {
+    throw new OrderUnknownInTx();
   }
 
-  if (typeof tr.amountFrom === 'undefined' || tr.amountFrom === null) {
-    throw new TrAmountFromNotFound();
+  if (typeof order.outTx === 'undefined') {
+    throw new OrderUnknownOutTx();
   }
 
-  let txPrefix = toCamelCase(commitPrefix);
-  txPrefix = `tx${txPrefix.charAt(0).toUpperCase()}${txPrefix.substring(1)}`;
-  const txCreatedAtPrefix = `${txPrefix}CreatedAt`;
-  const okStatus = `${commitPrefix}_commit_ok` as TransactionsModelStatus;
-  const errorStatus = `${commitPrefix}_commit_err` as TransactionsModelStatus;
-  let tx: TransactionsModelTxRaw;
+  if (
+    typeof order.inTx.coin === 'undefined' ||
+    order.inTx.coin !== 'FINTEH.USDT'
+  ) {
+    throw new OrderTxUnknownCoinFrom();
+  }
 
-  if (tr.status === previousStatus || tr.status === errorStatus) {
-    if (tr.tickerFrom !== 'FINTEH.USDT') {
-      throw new UnknownTickerFrom();
-    }
+  if (typeof order.outTx.coin === 'undefined' || order.outTx.coin !== 'USDT') {
+    throw new OrderTxUnknownCoinTo();
+  }
 
-    if (tr.tickerTo !== 'USDT') {
-      throw new UnknownTickerTo();
-    }
+  if (
+    typeof order.outTx.toAddress === 'undefined' ||
+    order.outTx.toAddress === null
+  ) {
+    throw new OrderTxUnknownToAddress();
+  }
 
-    const erc20Contract = erc20Contracts[tr.tickerTo];
+  let tx: TxRaw | null = null;
+
+  if (order.inTx.confirmations >= order.inTx.maxConfirmations) {
+    const erc20Contract = erc20Contracts[order.outTx.coin];
     const assetDecimals = new Decimal(
       await erc20Contract.methods.decimals().call()
     );
     const amountTo = Decimal.mul(
-      tr.amountFrom,
+      order.inTx.amount,
       Decimal.pow(10, assetDecimals)
     ).toString();
     const callData = erc20Contract.methods.transfer(
-      tr.derivedWallet.invoice,
+      order.outTx.toAddress,
       amountTo
     );
     tx = await web3.eth.accounts.signTransaction(
@@ -420,29 +425,25 @@ export async function txTransferTo(
     );
 
     await sequelize.transaction(async (transaction: Transaction) => {
-      const txCommited: TransactionsModelTx = tr[txPrefix] ?? {};
+      order.outTx.txId = tx!.transactionHash;
+      // TODO: fill fromAddress
+      order.outTx.amount = amountTo.toString();
+      order.outTx.txCreatedAt = new Date();
+      order.outTx.maxConfirmations = appConfig.ethereumRequiredConfirmations;
+      order.outTx.tx = tx;
 
-      if (tx[txCreatedAtPrefix] === null) {
-        tx[txCreatedAtPrefix] = new Date();
-      }
-
-      if (typeof txCommited.tx === 'undefined' || txCommited.tx === null) {
-        txCommited.tx = tx;
-        txCommited.txId = tx.transactionHash;
-        txCommited.txIndex = 0;
-        tr[txPrefix] = txCommited;
-
-        if (amountTo !== null) {
-          tr.amountTo = amountTo.toString();
-        }
-      }
-
-      tr.status = okStatus;
-
-      await tr.save({ transaction });
+      await order.save({ transaction });
     });
-  } else {
-    tx = tr[txPrefix].tx;
+    await bookerRPC.call('update_tx', {
+      coin: order.outTx.coin,
+      tx_id: order.outTx.txId,
+      from_address: order.outTx.fromAddress,
+      to_address: order.outTx.toAddress,
+      amount: order.outTx.amount,
+      created_at: order.outTx.txCreatedAt,
+      confirmations: order.outTx.confirmations,
+      max_confirmations: order.outTx.maxConfirmations,
+    });
   }
 
   return tx;
@@ -450,31 +451,35 @@ export async function txTransferTo(
 
 export async function processTx(
   job: Job,
-  tr: TransactionsModel,
-  tx: any,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix
+  order: Orders,
+  txType: TxType,
+  tx: any
 ): Promise<boolean> {
-  if (typeof tr.derivedWallet === 'undefined') {
-    throw new TrDeriveWalletNotFound();
+  if (typeof order.inTx === 'undefined') {
+    throw new OrderUnknownInTx();
   }
 
-  if (tr.derivedWallet.invoice === null) {
-    throw new TrDeriveWalletInvoiceNotFound();
+  if (typeof order.outTx === 'undefined') {
+    throw new OrderUnknownOutTx();
   }
 
-  let txPrefix = toCamelCase(commitPrefix);
+  const txInOut =
+    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
 
-  txPrefix = `tx${txPrefix.charAt(0).toUpperCase()}${txPrefix.substring(1)}`;
+  if (txInOut === null) {
+    throw new OrderUnknownType();
+  }
 
-  const txCreatedAtPrefix = `${txPrefix}CreatedAt`;
-  const pendingStatus = `${commitPrefix}_pending` as TransactionsModelStatus;
-  const okStatus = `${commitPrefix}_ok` as TransactionsModelStatus;
-  const errorStatus = `${commitPrefix}_err` as TransactionsModelStatus;
-  const erc20Contract =
-    commitPrefix === 'receive'
-      ? erc20Contracts[tr.tickerFrom]
-      : erc20Contracts[tr.tickerTo];
+  if (typeof txInOut.coin === 'undefined' || txInOut.coin !== 'USDT') {
+    throw new OrderTxUnknownCoinTo();
+  }
+
+  if (typeof txInOut.toAddress === 'undefined' || txInOut.toAddress === null) {
+    throw new OrderTxUnknownToAddress();
+  }
+
+  const erc20Contract = erc20Contracts[txInOut.coin];
+
   const txHash = tx.hash ?? tx.transactionHash;
   const txRaw = tx.raw ?? tx.rawTransaction;
   let transferDecl = null;
@@ -535,7 +540,7 @@ export async function processTx(
         !txStatus.status ||
         transferEvent === null ||
         multipleTransferEvent ||
-        transferEvent.to !== tr.derivedWallet.invoice ||
+        transferEvent.to !== txInOut.toAddress ||
         transferEvent.amount === null;
 
       if (txNotFetched) {
@@ -543,7 +548,7 @@ export async function processTx(
 
         if (tryFetchNumber >= appConfig.ethereumBlockTryCheckNumber) {
           console.error(
-            `Job ${job.id} skipped transaction ${txHash}: ` +
+            `Job ${inspect(job.id)} skipped transaction ${inspect(txHash)}: ` +
               `unknown, pending, reverted, Transfer event doesn't ` +
               `exist, multiple Transfer event, recipient's address ` +
               `doesn't match`
@@ -562,7 +567,7 @@ export async function processTx(
       }
     } while (txNotFetched);
 
-    let txInitial = false;
+    const txInitial = false;
     const assetDecimals = new Decimal(
       await erc20Contract.methods.decimals().call()
     );
@@ -572,101 +577,53 @@ export async function processTx(
       .toString();
     const confirmations = currentBlock - txStatus!.blockNumber + 1;
     /* eslint-enable @typescript-eslint/no-non-null-assertion */
-    const status =
-      confirmations >= appConfig.ethereumRequiredConfirmations
-        ? okStatus
-        : pendingStatus;
-    const commitStatus = await sequelize.transaction(
-      async (transaction: Transaction) => {
-        const txCommited: TransactionsModelTx = tr[txPrefix] ?? {};
 
-        if (tr.status === previousStatus || tr.status === errorStatus) {
-          const existingTx = await TransactionsModel.findOne({
-            attributes: ['id'],
-            where: {
-              id: { [SequelizeOp.ne]: tr.id },
-              [txPrefix]: { tx: { hash: txHash } },
-            },
-            transaction,
-          });
-
-          if (existingTx !== null) {
-            return false;
-          }
-
-          if (tr[txCreatedAtPrefix] === null) {
-            tr[txCreatedAtPrefix] = new Date();
-          }
-
-          if (typeof txCommited.tx === 'undefined' || txCommited.tx == null) {
-            txCommited.tx = tx;
-            txCommited.txId = txHash;
-            txCommited.txIndex = 0;
-            txInitial = true;
-          }
-        }
-
-        let txStatusChanged = false;
-
-        if (
-          tr.status === previousStatus ||
-          tr.status === pendingStatus ||
-          (tr.status === errorStatus &&
-            (confirmations < appConfig.ethereumRequiredConfirmations ||
-              (typeof txCommited.txStatus === 'undefined' &&
-                txCommited.txStatus === null)))
-        ) {
-          txCommited.txStatus = txStatus;
-          txStatusChanged = true;
-        }
-
-        if (
-          txInitial ||
-          txStatusChanged ||
-          txCommited.confirmations !== confirmations
-        ) {
-          txCommited.confirmations = confirmations;
-          tr[txPrefix] = txCommited;
-        }
-
-        if (
-          tr.status === previousStatus ||
-          tr.status === pendingStatus ||
-          tr.status === errorStatus
-        ) {
-          if (commitPrefix === 'receive' && tr.amountFrom !== amountFrom) {
-            tr.amountFrom = amountFrom;
-          }
-
-          tr.status = status;
-        }
-
-        await tr.save({ transaction });
-
-        return true;
-      }
-    );
-
-    if (!commitStatus) {
-      return false;
+    if (txInOut.confirmations >= txInOut.maxConfirmations) {
+      return true;
     }
 
-    if (tr.status !== okStatus) {
+    await sequelize.transaction(async (transaction: Transaction) => {
+      if (txInOut.txId === null) {
+        txInOut.txId = txHash;
+        txInOut.fromAddress = transferEvent.from;
+        txInOut.amount = amountFrom;
+        txInOut.txCreatedAt = new Date();
+        txInOut.maxConfirmations = appConfig.ethereumRequiredConfirmations;
+        txInOut.tx = tx;
+      }
+
+      txInOut.confirmations = confirmations;
+
+      await order.save({ transaction });
+
+      return true;
+    });
+    await bookerRPC.call('update_tx', {
+      coin: txInOut.coin,
+      tx_id: txInOut.txId,
+      from_address: txInOut.fromAddress,
+      to_address: txInOut.toAddress,
+      amount: txInOut.amount,
+      created_at: txInOut.txCreatedAt,
+      confirmations: txInOut.confirmations,
+      max_confirmations: txInOut.maxConfirmations,
+    });
+
+    if (txInOut.confirmations < txInOut.maxConfirmations) {
       await new Promise((resolve, _reject) => {
         setTimeout(() => resolve(), appConfig.ethereumBlockCheckTime);
       });
     }
-  } while (tr.status !== okStatus);
+  } while (txInOut.confirmations < txInOut.maxConfirmations);
 
   return true;
 }
 
 export async function fetchAndProcessTx(
   job: Job,
-  tr: TransactionsModel,
-  event: EventData,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix
+  order: Orders,
+  txType: TxType,
+  event: EventData
 ): Promise<boolean> {
   let tx;
   let tryFetchNumber = 0;
@@ -679,8 +636,9 @@ export async function fetchAndProcessTx(
 
       if (tryFetchNumber >= appConfig.ethereumBlockTryCheckNumber) {
         console.error(
-          `Job ${job.id} skipped event ${event.transactionHash}: ` +
-            `unknown or pending`
+          `Job ${inspect(job.id)} skipped event ${inspect(
+            event.transactionHash
+          )}: unknown or pending`
         );
 
         return false;
@@ -692,25 +650,35 @@ export async function fetchAndProcessTx(
     }
   } while (tx === null);
 
-  return processTx(job, tr, tx, previousStatus, commitPrefix);
+  return processTx(job, order, txType, tx);
 }
 
 export async function fetchAllHistoricalBlock(
   job: Job,
-  tr: TransactionsModel,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix,
+  order: Orders,
+  txType: TxType,
   taskStatus: TaskStatus
 ): Promise<boolean> {
-  if (typeof tr.derivedWallet === 'undefined') {
-    throw new TrDeriveWalletNotFound();
+  if (typeof order.inTx === 'undefined') {
+    throw new OrderUnknownInTx();
   }
 
-  if (tr.derivedWallet.invoice === null) {
-    throw new TrDeriveWalletInvoiceNotFound();
+  if (typeof order.outTx === 'undefined') {
+    throw new OrderUnknownOutTx();
   }
 
-  const erc20Contract = erc20Contracts[tr.tickerFrom];
+  const txInOut =
+    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+
+  if (txInOut === null) {
+    throw new OrderUnknownType();
+  }
+
+  if (typeof txInOut.toAddress === 'undefined' || txInOut.toAddress === null) {
+    throw new OrderTxUnknownToAddress();
+  }
+
+  const erc20Contract = erc20Contracts[order.outTx.coin];
   const currentBlock = await web3.eth.getBlockNumber();
   let lastError = null;
 
@@ -728,14 +696,16 @@ export async function fetchAllHistoricalBlock(
     try {
       events = await erc20Contract.getPastEvents('Transfer', {
         filter: {
-          to: tr.derivedWallet.invoice,
+          to: txInOut.toAddress,
         },
         fromBlock: leftBlock,
         toBlock: rightBlock,
       });
     } catch (error) {
       console.error(
-        `Job ${job.id} skipped blocks from ${leftBlock} to ${rightBlock}`,
+        `Job ${inspect(job.id)} skipped blocks from ${inspect(
+          leftBlock
+        )} to ${inspect(rightBlock)}`,
         error
       );
       lastError = error;
@@ -743,13 +713,7 @@ export async function fetchAllHistoricalBlock(
 
     if (events !== null) {
       for (const event of events) {
-        const processed = await fetchAndProcessTx(
-          job,
-          tr,
-          event,
-          previousStatus,
-          commitPrefix
-        );
+        const processed = await fetchAndProcessTx(job, order, txType, event);
 
         if (processed) {
           return true;
@@ -767,30 +731,43 @@ export async function fetchAllHistoricalBlock(
 
 export async function fetchAllNewBlock(
   job: Job,
-  tr: TransactionsModel,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix,
+  order: Orders,
+  txType: TxType,
   taskStatus: TaskStatus
 ): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    if (typeof tr.derivedWallet === 'undefined') {
-      throw new TrDeriveWalletNotFound();
+    if (typeof order.inTx === 'undefined') {
+      throw new OrderUnknownInTx();
     }
 
-    if (tr.derivedWallet.invoice === null) {
-      throw new TrDeriveWalletInvoiceNotFound();
+    if (typeof order.outTx === 'undefined') {
+      throw new OrderUnknownOutTx();
     }
 
-    const erc20Contract = erc20Contracts[tr.tickerFrom];
+    const txInOut =
+      txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+
+    if (txInOut === null) {
+      throw new OrderUnknownType();
+    }
+
+    if (
+      typeof txInOut.toAddress === 'undefined' ||
+      txInOut.toAddress === null
+    ) {
+      throw new OrderTxUnknownToAddress();
+    }
+
+    const erc20Contract = erc20Contracts[order.outTx.coin];
 
     erc20Contract.once(
       'Transfer',
       {
         filter: {
-          to: tr.derivedWallet.invoice,
+          to: txInOut.toAddress,
         },
       },
-      (eventError, event) => {
+      (eventError: Error, event: EventData) => {
         if (taskStatus.resolved()) {
           resolve(false);
         }
@@ -799,7 +776,7 @@ export async function fetchAllNewBlock(
           reject(eventError);
         }
 
-        fetchAndProcessTx(job, tr, event, previousStatus, commitPrefix).then(
+        fetchAndProcessTx(job, order, txType, event).then(
           (processed: boolean) => resolve(processed),
           (processError) => reject(processError)
         );
@@ -810,57 +787,51 @@ export async function fetchAllNewBlock(
 
 export async function fetchBlockUntilTxFound(
   job: Job,
-  tr: TransactionsModel,
-  previousStatus: TransactionsModelStatusInitial,
-  commitPrefix: TransactionsModelCommitPrefix
+  order: Orders,
+  txType: TxType
 ): Promise<boolean> {
-  if (tr.tickerFrom !== 'USDT') {
-    throw new UnknownTickerFrom();
-  }
-
-  const trCloned = await sequelize.transaction(
+  const orderCloned = await sequelize.transaction(
     async (transaction: Transaction) => {
-      const maybeTrCloned = await TransactionsModel.findByPk(tr.id, {
+      const maybeOrderCloned = await Orders.findByPk(order.id, {
         include: [
-          {
-            model: DerivedWalletsModel,
-            as: 'derivedWallet',
-            include: [{ model: WalletsModel, as: 'wallet' }],
-          },
+          { model: Txs, as: 'inTx' },
+          { model: Txs, as: 'outTx' },
         ],
         transaction,
       });
 
-      if (maybeTrCloned === null) {
-        throw new TrNotFound();
+      if (maybeOrderCloned === null) {
+        throw new OrderNotFound();
       }
 
-      return maybeTrCloned;
+      return maybeOrderCloned;
     }
   );
+
+  const txInOut =
+    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+
+  if (typeof txInOut === 'undefined' || txInOut === null) {
+    throw new OrderUnknownType();
+  }
+
+  if (
+    txInOut.txId !== null &&
+    txInOut.confirmations >= txInOut.maxConfirmations
+  ) {
+    return true;
+  }
 
   return resolveAny(job, [
     {
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
-        return fetchAllHistoricalBlock(
-          job,
-          trCloned,
-          previousStatus,
-          commitPrefix,
-          taskStatus
-        );
+        return fetchAllHistoricalBlock(job, orderCloned, txType, taskStatus);
       },
       skip: true,
     },
     {
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
-        return fetchAllNewBlock(
-          job,
-          tr,
-          previousStatus,
-          commitPrefix,
-          taskStatus
-        );
+        return fetchAllNewBlock(job, order, txType, taskStatus);
       },
       skip: false,
     },
