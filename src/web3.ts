@@ -5,7 +5,7 @@ import { Decimal } from 'decimal.js';
 import { Op as SequelizeOp, Transaction } from 'sequelize';
 import Web3 from 'web3';
 import { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
-import { Contract, ContractOptions, EventData } from 'web3-eth-contract';
+//import { Contract, ContractOptions, EventData } from 'web3-eth-contract';
 import { AbiType, StateMutabilityType } from 'web3-utils';
 
 import { appConfig } from './app';
@@ -105,6 +105,7 @@ export interface ApprovalEvent {
   2: string;
 }
 
+/*
 export class ERC20Contract extends Contract {
   public methods: {
     name(): TxObject<string>;
@@ -147,6 +148,7 @@ export class ERC20Contract extends Contract {
 
   public clone(): ERC20Contract;
 }
+*/
 
 export const erc20Abi = [
   {
@@ -352,7 +354,7 @@ export const erc20Abi = [
 ];
 
 export interface ERC20Contracts {
-  [key: string]: ERC20Contract;
+  [key: string]: any;
 }
 
 const web3 = new Web3(appConfig.web3Provider);

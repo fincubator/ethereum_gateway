@@ -1,15 +1,13 @@
 version: '2.0'
 services:
   memory_db:
-    # redis:5.0.7-buster
-    image: 44d36d2c2374b240abcf5da2130abf49938b8fb49446df6eec028718520332ef
+    image: redis:5.0.7-buster
   db:
-    # postgres:12.1
-    image: cf879a45faaacd2806705321f157c4c77682c7599589fed65d80f19bb61615a6
+    image: postgres:12.1
     environment:
-      POSTGRES_USER: "payment-gateway"
-      POSTGRES_DB: "payment-gateway"
-      POSTGRES_PASSWORD: "payment-gateway"
+      POSTGRES_USER: "${DB_USERNAME}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      POSTGRES_DB: "${DB_DATABASE}"
   app:
     build:
       context: .
@@ -17,6 +15,13 @@ services:
         - PORT
     environment:
       - PORT
+      - DB_HOST
+      - DB_USERNAME
+      - DB_PASSWORD
+      - DB_DATABASE
+      - MEMORY_DB_HOST
+      - MEMORY_DB_USERNAME
+      - MEMORY_DB_PASSWORD
       - ETHEREUM_COLD_KEY
       - ETHEREUM_SIGN_KEY
       - WEB3_PROVIDER

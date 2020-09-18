@@ -1,9 +1,17 @@
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 
+import { appConfig } from './app';
 // import { onStart, onSignal } from './app';
 
-const connection = new IORedis(6379, 'memory_db');
+const connection = new IORedis(
+  appConfig.memoryDBPort,
+  appConfig.memoryDBHost,
+  {
+    username: appConfig.memoryDBUsername,
+    password: appConfig.memoryDBPassword
+  }
+);
 
 export const queue = new Queue('PaymentGateway', { connection });
 

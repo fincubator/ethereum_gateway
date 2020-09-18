@@ -1,9 +1,17 @@
 import { Job, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 
+import { appConfig } from './app';
 import { jobs } from './jobs';
 
-const connection = new IORedis(6379, 'memory_db');
+const connection = new IORedis(
+  appConfig.memoryDBPort,
+  appConfig.memoryDBHost,
+  {
+    username: appConfig.memoryDBUsername,
+    password: appConfig.memoryDBPassword
+  }
+);
 
 export const worker = new Worker(
   'PaymentGateway',

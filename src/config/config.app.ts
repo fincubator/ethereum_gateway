@@ -2,6 +2,10 @@ import Web3 from 'web3';
 
 export interface ApplicationConfig {
   port: number;
+  memoryDBHost: string;
+  memoryDBPort: number;
+  memoryDBUsername: string;
+  memoryDBPassword: string;
   ethereumColdKey: string;
   ethereumSignKey: string;
   web3Provider: string;
@@ -28,6 +32,10 @@ export const developmentConfig: ApplicationConfig = {
     process.env.ETHEREUM_COLD_KEY ??
     'xpub6FnCn6nSzZAw5Tw7cgR9bi15UV96gLZhjDstkXXxvCLsUXBGXPdSnLFbdpq8p9HmGsAp' +
       'ME5hQTZ3emM2rnY5agb9rXpVGyy3bdW6EEgAtqt',
+  memoryDBHost: process.env.MEMORY_DB_HOST ?? 'memory_db',
+  memoryDBPort: process.env.MEMORY_DB_PORT ?? '6379',
+  memoryDBUsername: process.env.MEMORY_DB_USERNAME ?? 'payment-gateway',
+  memoryDBPassword: process.env.MEMORY_DB_PASSWORD ?? 'payment-gateway',
   // Ethereum hot wallet private key
   // Test key for example, dont use in production
   ethereumSignKey:

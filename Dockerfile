@@ -1,5 +1,4 @@
-# node:13.8.0-buster
-FROM 1ba8e570807b38d1b2f76906f0c6b05e8a2217255fab52bfe2ee26fae0a22f64 AS base
+FROM node:13.8.0-buster AS base
 
 WORKDIR /app
 
