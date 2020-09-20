@@ -12,9 +12,9 @@ import type { AbiType, StateMutabilityType } from 'web3-utils';
 import { appConfig } from './app';
 import type { TxRaw } from './models';
 import { Orders, Txs, sequelize } from './models';
+import { bookerProvider } from './rpc';
 import type { TaskStatus } from './utils';
 import { inspect, range, resolveAny } from './utils';
-import { bookerProvider } from './rpc';
 
 export class OrderNotFound extends Error {}
 

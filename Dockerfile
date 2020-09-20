@@ -18,7 +18,7 @@ FROM base AS runner
 COPY --from=builder /app/dist dist
 COPY .sequelizerc ./
 
-CMD npm run serve
+CMD npm run migrate && npm run serve
 
 ARG PORT
 

@@ -85,14 +85,11 @@ async function up(
         },
         { transaction }
       );
-      await queryInterface.addConstraint(
-        'DerivedWallets',
-        {
-          transaction,
-          type: 'unique',
-          fields: ['walletId', 'payment'],
-        }
-      );
+      await queryInterface.addConstraint('DerivedWallets', {
+        transaction,
+        type: 'unique',
+        fields: ['walletId', 'payment'],
+      });
       await queryInterface.addConstraint('DerivedWallets', {
         type: 'unique',
         fields: ['payment', 'invoice'],

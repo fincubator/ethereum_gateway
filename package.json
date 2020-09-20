@@ -66,8 +66,8 @@
     "lint": "eslint --ext .ts,.tsx .",
     "lint:fix": "eslint --ext .ts,.tsx --fix .",
     "build": "babel src -d dist -x .ts,.tsx",
-    "serve": "node dist/index.js",
-    "worker": "node dist/worker.js"
+    "migrate": "sequelize db:migrate",
+    "serve": "node dist/index.js"
   },
   "eslintConfig": {
     "env": {

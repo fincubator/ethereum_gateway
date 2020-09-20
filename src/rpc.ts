@@ -1,6 +1,6 @@
 import { hdkey } from 'ethereumjs-wallet';
-import type { Transaction } from 'sequelize';
 import { Client as WebSocketClient } from 'rpc-websockets';
+import type { Transaction } from 'sequelize';
 
 import { app, appConfig } from './app';
 import { DerivedWallets, Orders, Txs, Wallets, sequelize } from './models';
