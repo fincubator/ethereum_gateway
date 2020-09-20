@@ -5,7 +5,9 @@ import { appConfig } from './app';
 
 // import { onStart, onSignal } from './app';
 
-const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost);
+const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost, {
+  password: appConfig.memoryDBPassword,
+});
 
 export default new Queue('PaymentGateway', { connection });
 

@@ -16,13 +16,13 @@ export async function getDepositAddress(args: any): Promise<any> {
       const wallet = (
         await Wallets.findOrCreate({
           attributes: ['id', 'payment'],
-          where: { payment: 'ethereum', invoice: args.user },
+          where: { payment: 'bitshares', invoice: args.user },
           include: [
             {
               model: DerivedWallets,
               as: 'derivedWallets',
-              attributes: ['id'],
-              where: { payment: 'bitshares' },
+              attributes: ['id', 'invoice'],
+              where: { payment: 'ethereum' },
               required: false,
               separate: true,
               limit: 1,
@@ -73,9 +73,9 @@ export async function getDepositAddressHTTP(
 export async function newInTx(args: any): Promise<any> {
   const order = await sequelize.transaction(
     async (transaction: Transaction) => {
-      const walletId = DerivedWallets.findOne({
+      const wallet = await DerivedWallets.findOne({
         attributes: ['id'],
-        where: { payment: 'ethereum', invoice: args.outTxTto },
+        where: { payment: 'ethereum', invoice: args.in_tx.to_address },
         transaction,
       });
 
@@ -85,24 +85,27 @@ export async function newInTx(args: any): Promise<any> {
           type: args.order_type,
           inTx: {
             coin: args.in_tx.coin,
+            txId: args.in_tx.tx_id,
             fromAddress: args.in_tx.from_address,
             toAddress: args.in_tx.to_address,
             amount: args.in_tx.amount,
             txCreatedAt: args.in_tx.created_at,
-            txId: args.in_tx.tx_id,
+            error: args.in_tx.error,
             confirmations: args.in_tx.confirmations,
             maxConfirmations: args.in_tx.max_confirmations,
           },
           outTx: {
             coin: args.out_tx.coin,
+            txId: args.out_tx.tx_id,
             fromAddress: args.out_tx.from_address,
             toAddress: args.out_tx.to_address,
             amount: args.out_tx.amount,
             txCreatedAt: args.out_tx.created_at,
-            txId: args.out_tx.tx_id,
+            error: args.out_tx.error,
             confirmations: args.out_tx.confirmations,
             maxConfirmations: args.out_tx.max_confirmations,
           },
+          walletId: wallet.id,
         },
         {
           include: [
@@ -126,6 +129,12 @@ export async function newInTx(args: any): Promise<any> {
   } else if ((await job.getState()) === 'failed') {
     await job.retry();
   }
+
+  return {};
+}
+
+export async function newInTxHTTP(rq: Request, rs: Response): Promise<void> {
+  await rs.status(200).json(await newInTx(rq.body));
 }
 
 export async function validateAddress(args: any): Promise<any> {
@@ -135,3 +144,4 @@ export async function validateAddress(args: any): Promise<any> {
 }
 
 app.post('/v1/get_deposit_address', getDepositAddressHTTP);
+app.post('/v1/new_in_tx', newInTxHTTP);

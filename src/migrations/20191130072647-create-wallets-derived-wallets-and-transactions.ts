@@ -11,10 +11,11 @@ async function up(
         'Wallets',
         {
           id: {
-            type: DataTypes.UUID,
+            type: DataTypes.BIGINT,
             primaryKey: true,
             allowNull: false,
-            defaultValue: DataTypes.UUIDV4,
+            autoIncrement: true,
+            autoIncrementIdentity: true,
           },
           payment: {
             type: DataTypes.ENUM('ethereum', 'bitshares'),
@@ -49,13 +50,14 @@ async function up(
         'DerivedWallets',
         {
           id: {
-            type: DataTypes.UUID,
+            type: DataTypes.BIGINT,
             primaryKey: true,
             allowNull: false,
-            defaultValue: DataTypes.UUIDV4,
+            autoIncrement: true,
+            autoIncrementIdentity: true,
           },
           walletId: {
-            type: DataTypes.UUID,
+            type: DataTypes.BIGINT,
             allowNull: false,
             references: { model: 'Wallets', key: 'id' },
             onUpdate: 'cascade',
@@ -116,6 +118,21 @@ async function up(
             type: DataTypes.DATE,
             allowNull: true,
             defaultValue: DataTypes.NOW,
+          },
+          error: {
+            type: DataTypes.ENUM(
+              'NO_ERROR',
+              'UNKNOWN_ERROR',
+              'BAD_ASSET',
+              'LESS_MIN',
+              'GREATER_MAX',
+              'NO_MEMO',
+              'FLOOD_MEMO',
+              'OP_COLLISION',
+              'TX_HASH_NOT_FOUND'
+            ),
+            allowNull: false,
+            defaultValue: 'NO_ERROR',
           },
           confirmations: {
             type: DataTypes.INTEGER.UNSIGNED,
@@ -178,7 +195,7 @@ async function up(
             defaultValue: DataTypes.UUIDV4,
           },
           walletId: {
-            type: DataTypes.UUID,
+            type: DataTypes.BIGINT,
             allowNull: false,
             references: { model: 'DerivedWallets', key: 'id' },
             onUpdate: 'cascade',

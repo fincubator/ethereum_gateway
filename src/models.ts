@@ -146,6 +146,17 @@ export class DerivedWallets extends Model {
 
 export type Coin = 'USDT' | 'FINTEH.USDT';
 
+export type TxError =
+  | 'NO_ERROR'
+  | 'UNKNOWN_ERROR'
+  | 'BAD_ASSET'
+  | 'LESS_MIN'
+  | 'GREATER_MAX'
+  | 'NO_MEMO'
+  | 'FLOOD_MEMO'
+  | 'OP_COLLISION'
+  | 'TX_HASH_NOT_FOUND';
+
 export interface TxRaw {
   [key: string]: any;
 }
@@ -164,6 +175,8 @@ export class Txs extends Model {
   public amount!: string;
 
   public txCreatedAt!: Date;
+
+  public error!: TxError;
 
   public confirmations!: number;
 
@@ -244,10 +257,11 @@ export interface Task<T> {
 Wallets.init(
   {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       primaryKey: true,
       allowNull: false,
-      defaultValue: DataTypes.UUIDV4,
+      autoIncrement: true,
+      autoIncrementIdentity: true,
     },
     payment: {
       type: DataTypes.ENUM('ethereum', 'bitshares'),
@@ -267,10 +281,11 @@ Wallets.init(
 DerivedWallets.init(
   {
     id: {
-      type: DataTypes.UUID,
+      type: DataTypes.BIGINT,
       primaryKey: true,
       allowNull: false,
-      defaultValue: DataTypes.UUIDV4,
+      autoIncrement: true,
+      autoIncrementIdentity: true,
     },
     payment: {
       type: DataTypes.ENUM('ethereum', 'bitshares'),

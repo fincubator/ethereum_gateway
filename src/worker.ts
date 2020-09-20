@@ -8,7 +8,9 @@ import { appConfig } from './app';
 import { jobs } from './jobs';
 import { inspect } from './utils';
 
-const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost);
+const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost, {
+  password: appConfig.memoryDBPassword,
+});
 
 export default new Worker(
   'PaymentGateway',

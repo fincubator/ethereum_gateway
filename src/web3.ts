@@ -678,7 +678,7 @@ export async function fetchAllHistoricalBlock(
     throw new OrderTxUnknownToAddress();
   }
 
-  const erc20Contract = erc20Contracts[order.outTx.coin];
+  const erc20Contract = erc20Contracts[txInOut.coin];
   const currentBlock = await web3.eth.getBlockNumber();
   let lastError = null;
 
@@ -758,7 +758,7 @@ export async function fetchAllNewBlock(
       throw new OrderTxUnknownToAddress();
     }
 
-    const erc20Contract = erc20Contracts[order.outTx.coin];
+    const erc20Contract = erc20Contracts[txInOut.coin];
 
     erc20Contract.once(
       'Transfer',
