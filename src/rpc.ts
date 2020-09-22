@@ -9,8 +9,6 @@ import queue from './queue';
 const bookerProvider = new WebSocketClient(appConfig.bookerProvider);
 
 export async function getDepositAddress(args: any): Promise<any> {
-  console.log(args);
-
   const outTxTo = await sequelize.transaction(
     async (transaction: Transaction) => {
       const wallet = (

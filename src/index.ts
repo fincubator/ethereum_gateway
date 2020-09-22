@@ -15,9 +15,10 @@ import { getDepositAddress, initNewTx, validateAddressRequest } from './rpc';
 const server = http.createServer(app);
 const rpc = new WebSocketServer({ server, path: '/ws-rpc' });
 
-rpc.register('init_new_tx', initNewTx);
-rpc.register('get_deposit_address', getDepositAddress);
-rpc.register('validate_address_request', validateAddressRequest);
+rpc.register('init_new_tx', initNewTx, '/ws-rpc');
+rpc.register('get_deposit_address', getDepositAddress, '/ws-rpc');
+rpc.register('validate_address_request', validateAddressRequest, '/ws-rpc');
+
 
 createTerminus(server, {
   signal: 'SIGINT',
