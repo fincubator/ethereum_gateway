@@ -3,6 +3,7 @@ import { Transaction } from 'sequelize';
 export const production = {
   dialect: 'postgres',
   host: process.env.DB_HOST ?? 'payment-gateway',
+  port: process.env.DB_PORT ?? 5432,
   username: process.env.DB_USERNAME ?? 'payment-gateway',
   password: process.env.DB_PASSWORD ?? 'payment-gateway',
   database: process.env.DB_DATABASE ?? 'payment-gateway',
@@ -12,6 +13,7 @@ export const production = {
 export const development = {
   dialect: 'postgres',
   host: process.env.DB_HOST ?? 'payment-gateway',
+  port: process.env.DB_PORT ?? 5432,
   username: process.env.DB_USERNAME ?? 'payment-gateway',
   password: process.env.DB_PASSWORD ?? 'payment-gateway',
   database: process.env.DB_DATABASE ?? 'payment-gateway',

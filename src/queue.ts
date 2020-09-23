@@ -2,18 +2,18 @@ import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
 
 import { appConfig } from './app';
+
 // import { onStart, onSignal } from './app';
 
-const connection = new IORedis(
-  appConfig.memoryDBPort,
-  appConfig.memoryDBHost,
-  {
-    username: appConfig.memoryDBUsername,
-    password: appConfig.memoryDBPassword
-  }
-);
+const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost, {
+  password: appConfig.memoryDBPassword,
+});
 
-export const queue = new Queue('PaymentGateway', { connection });
+connection.on('connect', () => {
+  console.log('Connection to Redis has been established successfully.');
+});
+
+export default new Queue('PaymentGateway', { connection });
 
 /*
 onStart.push(

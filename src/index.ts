@@ -2,17 +2,28 @@ import 'source-map-support/register';
 
 import './queue';
 import './web3';
-import './bitshares';
 import './worker';
-import './views';
 
 import * as http from 'http';
 
 import { createTerminus } from '@godaddy/terminus';
+import { Server as WebSocketServer } from 'rpc-websockets';
 
 import { app, appConfig, onSignal, onStart } from './app';
+import {
+  getDepositAddress,
+  newInOrder,
+  newOutOrder,
+  validateAddressRequest
+} from './rpc';
 
 const server = http.createServer(app);
+const rpc = new WebSocketServer({ server, path: '/ws-rpc' });
+
+rpc.register('create_empty_order', newInOrder, '/ws-rpc');
+rpc.register('init_new_tx', newOutOrder, '/ws-rpc');
+rpc.register('get_deposit_address', getDepositAddress, '/ws-rpc');
+rpc.register('validate_address_request', validateAddressRequest, '/ws-rpc');
 
 createTerminus(server, {
   signal: 'SIGINT',
@@ -24,6 +35,8 @@ createTerminus(server, {
 onStart.push(
   (async (): Promise<void> => {
     server.listen(appConfig.port);
+
+    return Promise.resolve();
   })()
 );
 

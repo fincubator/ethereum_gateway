@@ -1,4 +1,4 @@
-FROM node:13.8.0-buster AS base
+FROM node:14.11.0-buster AS base
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ FROM base AS runner
 COPY --from=builder /app/dist dist
 COPY .sequelizerc ./
 
-CMD npm run serve
+CMD npm run migrate && npm run serve
 
 ARG PORT
 

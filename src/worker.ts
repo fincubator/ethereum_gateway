@@ -1,24 +1,29 @@
-import { Job, Worker } from 'bullmq';
+import os from 'os';
+
+import type { Job } from 'bullmq';
+import { Worker } from 'bullmq';
 import IORedis from 'ioredis';
 
 import { appConfig } from './app';
 import { jobs } from './jobs';
+import { inspect } from './utils';
 
-const connection = new IORedis(
-  appConfig.memoryDBPort,
-  appConfig.memoryDBHost,
-  {
-    username: appConfig.memoryDBUsername,
-    password: appConfig.memoryDBPassword
-  }
-);
+const connection = new IORedis(appConfig.memoryDBPort, appConfig.memoryDBHost, {
+  password: appConfig.memoryDBPassword,
+});
 
-export const worker = new Worker(
+connection.on('connect', () => {
+  console.log('Connection to Redis has been established successfully.');
+});
+
+export default new Worker(
   'PaymentGateway',
   async (job: Job) => {
     await jobs[job.name](job);
   },
   { connection }
 ).on('failed', (job: Job, error) => {
-  console.error(`Job ${job.id} failed with:`, error);
+  console.error(
+    `Job ${inspect(job.id)} failed with:${os.EOL}${inspect(error)}`
+  );
 });
