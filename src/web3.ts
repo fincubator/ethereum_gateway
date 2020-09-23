@@ -2,6 +2,7 @@ import type { EventEmitter } from 'events';
 
 import type { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
+import { hdkey } from 'ethereumjs-wallet';
 import type { Transaction } from 'sequelize';
 import Web3 from 'web3';
 import type { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
@@ -12,7 +13,7 @@ import type { AbiType, StateMutabilityType } from 'web3-utils';
 import { appConfig } from './app';
 import type { TxRaw } from './models';
 import { Orders, Txs, sequelize } from './models';
-import { bookerProvider } from './rpc';
+import { getBookerProvider } from './rpc';
 import type { TaskStatus } from './utils';
 import { inspect, range, resolveAny } from './utils';
 
@@ -401,6 +402,10 @@ export async function txTransferTo(
   }
 
   let tx: TxRaw | null = null;
+  const fromAdress = hdkey
+    .fromMasterSeed(appConfig.ethereumSignKey)
+    .getWallet()
+    .getAddressString();
 
   if (order.inTx.confirmations >= order.inTx.maxConfirmations) {
     const erc20Contract = erc20Contracts[order.outTx.coin];
@@ -426,7 +431,7 @@ export async function txTransferTo(
 
     await sequelize.transaction(async (transaction: Transaction) => {
       order.outTx.txId = tx!.transactionHash;
-      // TODO: fill fromAddress
+      order.outTx.fromAddress = fromAdress;
       order.outTx.amount = amountTo.toString();
       order.outTx.txCreatedAt = new Date();
       order.outTx.maxConfirmations = appConfig.ethereumRequiredConfirmations;
@@ -434,15 +439,18 @@ export async function txTransferTo(
 
       await order.save({ transaction });
     });
-    await bookerRPC.call('update_tx', {
-      coin: order.outTx.coin,
-      tx_id: order.outTx.txId,
-      from_address: order.outTx.fromAddress,
-      to_address: order.outTx.toAddress,
-      amount: order.outTx.amount,
-      created_at: order.outTx.txCreatedAt,
-      confirmations: order.outTx.confirmations,
-      max_confirmations: order.outTx.maxConfirmations,
+    await getBookerProvider().call('update_order', {
+      order_id: order.id,
+      out_tx: {
+        coin: order.outTx.coin,
+        tx_id: order.outTx.txId,
+        from_address: order.outTx.fromAddress,
+        to_address: order.outTx.toAddress,
+        amount: order.outTx.amount,
+        created_at: order.outTx.txCreatedAt,
+        confirmations: order.outTx.confirmations,
+        max_confirmations: order.outTx.maxConfirmations,
+      }
     });
   }
 
@@ -467,6 +475,13 @@ export async function processTx(
     txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
 
   if (txInOut === null) {
+    throw new OrderUnknownType();
+  }
+
+  const txUpdateType =
+    txType === 'in' ? 'in_tx' : txType === 'out' ? 'out_tx' : null;
+
+  if (txUpdateType === null) {
     throw new OrderUnknownType();
   }
 
@@ -598,15 +613,18 @@ export async function processTx(
 
       return true;
     });
-    await bookerRPC.call('update_tx', {
-      coin: txInOut.coin,
-      tx_id: txInOut.txId,
-      from_address: txInOut.fromAddress,
-      to_address: txInOut.toAddress,
-      amount: txInOut.amount,
-      created_at: txInOut.txCreatedAt,
-      confirmations: txInOut.confirmations,
-      max_confirmations: txInOut.maxConfirmations,
+    await getBookerProvider().call('update_tx', {
+      order_id: order.id,
+      [txUpdateType]: {
+        coin: txInOut.coin,
+        tx_id: txInOut.txId,
+        from_address: txInOut.fromAddress,
+        to_address: txInOut.toAddress,
+        amount: txInOut.amount,
+        created_at: txInOut.txCreatedAt,
+        confirmations: txInOut.confirmations,
+        max_confirmations: txInOut.maxConfirmations,
+      },
     });
 
     if (txInOut.confirmations < txInOut.maxConfirmations) {

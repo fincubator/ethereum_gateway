@@ -43,4 +43,4 @@ services:
       - memory_db
       - db
     ports:
-      - '8080:${PORT}'
+      - '${HOST_PORT}:${PORT}'

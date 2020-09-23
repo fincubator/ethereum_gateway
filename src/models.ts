@@ -36,6 +36,10 @@ if (config.use_env_variable) {
   );
 }
 
+sequelize.authenticate().then(() => {
+  console.log('Connection to database has been established successfully.');
+});
+
 export type Payment = 'ethereum' | 'bitshares';
 
 export class Wallets extends Model {
