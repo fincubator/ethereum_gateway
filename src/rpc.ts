@@ -1,10 +1,10 @@
-import { hdkey } from 'ethereumjs-wallet';
 import { Client as WebSocketClient } from 'rpc-websockets';
 import type { Transaction } from 'sequelize';
 
 import { app, appConfig } from './app';
 import { DerivedWallets, Orders, Txs, Wallets, sequelize } from './models';
 import queue from './queue';
+import { getHotAddress, toChecksumAddress } from './web3';
 
 let bookerProvider = null;
 
@@ -44,17 +44,11 @@ export async function getDepositAddress(args: any): Promise<any> {
         typeof wallet.derivedWallets === 'undefined' ||
         wallet.derivedWallets.length === 0
       ) {
-        const inTxAddressTo = hdkey
-          .fromExtendedKey(appConfig.ethereumColdKey)
-          .derivePath(`m/0/${wallet.id}`)
-          .getWallet()
-          .getAddressString();
-
         derivedWallet = await DerivedWallets.create(
           {
             walletId: wallet.id,
             payment: 'ethereum',
-            invoice: inTxAddressTo,
+            invoice: getHotAddress(wallet),
           },
           { transaction }
         );
@@ -92,8 +86,8 @@ export async function newInOrder(args: any): Promise<any> {
           inTx: {
             coin: args.in_tx.coin,
             txId: args.in_tx.tx_id,
-            fromAddress: args.in_tx.from_address,
-            toAddress: args.in_tx.to_address,
+            fromAddress: toChecksumAddress(args.in_tx.from_address),
+            toAddress: toChecksumAddress(args.in_tx.to_address),
             amount: args.in_tx.amount,
             txCreatedAt: args.in_tx.created_at,
             error: args.in_tx.error,
@@ -201,8 +195,8 @@ export async function newOutOrder(args: any): Promise<any> {
           outTx: {
             coin: args.out_tx.coin,
             txId: args.out_tx.tx_id,
-            fromAddress: args.out_tx.from_address,
-            toAddress: args.out_tx.to_address,
+            fromAddress: toChecksumAddress(args.out_tx.from_address),
+            toAddress: toChecksumAddress(args.out_tx.to_address),
             amount: args.out_tx.amount,
             txCreatedAt: args.out_tx.created_at,
             error: args.out_tx.error,
