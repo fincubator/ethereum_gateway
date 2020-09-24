@@ -11,7 +11,7 @@ import { Contract, ContractOptions } from 'web3-eth-contract';
 import type { AbiType, StateMutabilityType } from 'web3-utils';
 
 import { appConfig } from './app';
-import type { TxRaw } from './models';
+import type { TxRaw, Wallets } from './models';
 import { Orders, Txs, sequelize } from './models';
 import { getBookerProvider } from './rpc';
 import type { TaskStatus } from './utils';
@@ -27,11 +27,21 @@ export class OrderUnknownInTx extends Error {}
 
 export class OrderUnknownOutTx extends Error {}
 
+export class OrderTxUnknownCoin extends Error {}
+
 export class OrderTxUnknownCoinFrom extends Error {}
 
 export class OrderTxUnknownCoinTo extends Error {}
 
+export class OrderTxUnknownTxId extends Error {}
+
+export class OrderTxUnknownAmount extends Error {}
+
 export class OrderTxUnknownToAddress extends Error {}
+
+export class OrderTxUnknownConfirmations extends Error {}
+
+export class OrderTxUnknownMaxConfirmations extends Error {}
 
 export class TransferEventDeclDoesntExist extends Error {}
 
@@ -358,7 +368,25 @@ export interface ERC20Contracts {
   [key: string]: any;
 }
 
+console.log(
+  hdkey.fromMasterSeed(appConfig.ethereumSignKey).getWallet().getAddressString()
+);
+
 const web3 = new Web3(appConfig.web3Provider);
+
+export function toChecksumAddress(address: string): string {
+  return web3.utils.toChecksumAddress(address);
+}
+
+export function getHotAddress(wallet: Wallets): string {
+  return toChecksumAddress(
+    hdkey
+      .fromExtendedKey(appConfig.ethereumColdKey)
+      .derivePath(`m/0/${wallet.id}`)
+      .getWallet()
+      .getAddressString()
+  );
+}
 
 export const erc20Contracts: ERC20Contracts = {
   // https://api.etherscan.io/api?module=contract&action=getsourcecode&address=
@@ -394,6 +422,10 @@ export async function txTransferTo(
     throw new OrderTxUnknownCoinTo();
   }
 
+  if (typeof order.inTx.txId === 'undefined') {
+    throw new OrderTxUnknownTxId();
+  }
+
   if (
     typeof order.outTx.toAddress === 'undefined' ||
     order.outTx.toAddress === null
@@ -401,13 +433,30 @@ export async function txTransferTo(
     throw new OrderTxUnknownToAddress();
   }
 
-  let tx: TxRaw | null = null;
-  const fromAdress = hdkey
-    .fromMasterSeed(appConfig.ethereumSignKey)
-    .getWallet()
-    .getAddressString();
+  if (typeof order.inTx.amount === 'undefined') {
+    throw new OrderTxUnknownAmount();
+  }
 
-  if (order.inTx.confirmations >= order.inTx.maxConfirmations) {
+  if (typeof order.inTx.confirmations === 'undefined') {
+    throw new OrderTxUnknownConfirmations();
+  }
+
+  if (typeof order.inTx.maxConfirmations === 'undefined') {
+    throw new OrderTxUnknownMaxConfirmations();
+  }
+
+  let tx: TxRaw | null = null;
+  const fromAdress = toChecksumAddress(
+    hdkey
+      .fromMasterSeed(appConfig.ethereumSignKey)
+      .getWallet()
+      .getAddressString()
+  );
+
+  if (
+    order.inTx.txId !== null &&
+    order.inTx.confirmations >= order.inTx.maxConfirmations
+  ) {
     const erc20Contract = erc20Contracts[order.outTx.coin];
     const assetDecimals = new Decimal(
       await erc20Contract.methods.decimals().call()
@@ -437,7 +486,7 @@ export async function txTransferTo(
       order.outTx.maxConfirmations = appConfig.ethereumRequiredConfirmations;
       order.outTx.tx = tx;
 
-      await order.save({ transaction });
+      await order.outTx.save({ transaction });
     });
     await getBookerProvider().call('update_order', {
       order_id: order.id,
@@ -485,12 +534,24 @@ export async function processTx(
     throw new OrderUnknownType();
   }
 
-  if (typeof txInOut.coin === 'undefined' || txInOut.coin !== 'USDT') {
-    throw new OrderTxUnknownCoinTo();
+  if (typeof txInOut.coin === 'undefined') {
+    throw new OrderTxUnknownCoin();
+  }
+
+  if (typeof txInOut.txId === 'undefined') {
+    throw new OrderTxUnknownTxId();
   }
 
   if (typeof txInOut.toAddress === 'undefined' || txInOut.toAddress === null) {
     throw new OrderTxUnknownToAddress();
+  }
+
+  if (typeof txInOut.confirmations === 'undefined') {
+    throw new OrderTxUnknownConfirmations();
+  }
+
+  if (typeof txInOut.maxConfirmations === 'undefined') {
+    throw new OrderTxUnknownMaxConfirmations();
   }
 
   const erc20Contract = erc20Contracts[txInOut.coin];
@@ -529,6 +590,12 @@ export async function processTx(
         continue;
       }
 
+      if (txStatus === null) {
+        await web3.eth.sendSignedTransaction(txRaw);
+
+        continue;
+      }
+
       let multipleTransferEvent = false;
 
       if (txStatus.status) {
@@ -555,7 +622,8 @@ export async function processTx(
         !txStatus.status ||
         transferEvent === null ||
         multipleTransferEvent ||
-        transferEvent.to !== txInOut.toAddress ||
+        toChecksumAddress(transferEvent.to) !==
+          toChecksumAddress(txInOut.toAddress) ||
         transferEvent.amount === null;
 
       if (txNotFetched) {
@@ -582,7 +650,6 @@ export async function processTx(
       }
     } while (txNotFetched);
 
-    const txInitial = false;
     const assetDecimals = new Decimal(
       await erc20Contract.methods.decimals().call()
     );
@@ -593,26 +660,48 @@ export async function processTx(
     const confirmations = currentBlock - txStatus!.blockNumber + 1;
     /* eslint-enable @typescript-eslint/no-non-null-assertion */
 
-    if (txInOut.confirmations >= txInOut.maxConfirmations) {
+    if (
+      txInOut.txId !== null &&
+      txInOut.confirmations >= txInOut.maxConfirmations
+    ) {
       return true;
     }
 
-    await sequelize.transaction(async (transaction: Transaction) => {
-      if (txInOut.txId === null) {
-        txInOut.txId = txHash;
-        txInOut.fromAddress = transferEvent.from;
-        txInOut.amount = amountFrom;
-        txInOut.txCreatedAt = new Date();
-        txInOut.maxConfirmations = appConfig.ethereumRequiredConfirmations;
-        txInOut.tx = tx;
+    const txCommited = await sequelize.transaction(
+      async (transaction: Transaction) => {
+        if (txInOut.txId !== txHash) {
+          const existingTx = await Txs.findOne({
+            attributes: ['txId'],
+            where: { txId: txHash },
+            transaction,
+          });
+
+          if (existingTx !== null) {
+            return false;
+          }
+        }
+
+        if (txInOut.txId === null) {
+          txInOut.txId = txHash;
+          txInOut.fromAddress = toChecksumAddress(transferEvent.from);
+          txInOut.amount = amountFrom;
+          txInOut.txCreatedAt = new Date();
+          txInOut.maxConfirmations = appConfig.ethereumRequiredConfirmations;
+          txInOut.tx = tx;
+        }
+
+        txInOut.confirmations = confirmations;
+
+        await txInOut.save({ transaction });
+
+        return true;
       }
+    );
 
-      txInOut.confirmations = confirmations;
+    if (!txCommited) {
+      return false;
+    }
 
-      await order.save({ transaction });
-
-      return true;
-    });
     await getBookerProvider().call('update_tx', {
       order_id: order.id,
       [txUpdateType]: {
@@ -692,8 +781,31 @@ export async function fetchAllHistoricalBlock(
     throw new OrderUnknownType();
   }
 
+  if (typeof txInOut.coin === 'undefined') {
+    throw new OrderTxUnknownCoin();
+  }
+
+  if (typeof txInOut.txId === 'undefined') {
+    throw new OrderTxUnknownTxId();
+  }
+
   if (typeof txInOut.toAddress === 'undefined' || txInOut.toAddress === null) {
     throw new OrderTxUnknownToAddress();
+  }
+
+  if (typeof txInOut.confirmations === 'undefined') {
+    throw new OrderTxUnknownConfirmations();
+  }
+
+  if (typeof txInOut.maxConfirmations === 'undefined') {
+    throw new OrderTxUnknownMaxConfirmations();
+  }
+
+  if (
+    txInOut.txId !== null &&
+    txInOut.confirmations >= txInOut.maxConfirmations
+  ) {
+    return true;
   }
 
   const erc20Contract = erc20Contracts[txInOut.coin];
@@ -769,11 +881,34 @@ export async function fetchAllNewBlock(
       throw new OrderUnknownType();
     }
 
+    if (typeof txInOut.coin === 'undefined') {
+      throw new OrderTxUnknownCoin();
+    }
+
+    if (typeof txInOut.txId === 'undefined') {
+      throw new OrderTxUnknownTxId();
+    }
+
     if (
       typeof txInOut.toAddress === 'undefined' ||
       txInOut.toAddress === null
     ) {
       throw new OrderTxUnknownToAddress();
+    }
+
+    if (typeof txInOut.confirmations === 'undefined') {
+      throw new OrderTxUnknownConfirmations();
+    }
+
+    if (typeof txInOut.maxConfirmations === 'undefined') {
+      throw new OrderTxUnknownMaxConfirmations();
+    }
+
+    if (
+      txInOut.txId !== null &&
+      txInOut.confirmations >= txInOut.maxConfirmations
+    ) {
+      return true;
     }
 
     const erc20Contract = erc20Contracts[txInOut.coin];
@@ -826,11 +961,31 @@ export async function fetchBlockUntilTxFound(
     }
   );
 
+  if (typeof order.inTx === 'undefined') {
+    throw new OrderUnknownInTx();
+  }
+
+  if (typeof order.outTx === 'undefined') {
+    throw new OrderUnknownOutTx();
+  }
+
   const txInOut =
     txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
 
-  if (typeof txInOut === 'undefined' || txInOut === null) {
+  if (txInOut === null) {
     throw new OrderUnknownType();
+  }
+
+  if (typeof txInOut.txId === 'undefined') {
+    throw new OrderTxUnknownTxId();
+  }
+
+  if (typeof txInOut.confirmations === 'undefined') {
+    throw new OrderTxUnknownConfirmations();
+  }
+
+  if (typeof txInOut.maxConfirmations === 'undefined') {
+    throw new OrderTxUnknownMaxConfirmations();
   }
 
   if (

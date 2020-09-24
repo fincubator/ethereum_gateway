@@ -63,8 +63,8 @@
   },
   "scripts": {
     "typecheck": "tsc",
-    "lint": "eslint --ext .ts,.tsx .",
-    "lint:fix": "eslint --ext .ts,.tsx --fix .",
+    "lint": "eslint --ext .ts,.tsx src",
+    "lint:fix": "eslint --ext .ts,.tsx --fix src",
     "build": "babel src -d dist -x .ts,.tsx",
     "migrate": "sequelize db:migrate",
     "serve": "node dist/index.js"
