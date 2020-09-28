@@ -188,6 +188,13 @@ export async function newOutOrder(args: any): Promise<any> {
         [derivedWallet] = wallet.derivedWallets;
       }
 
+      let fromAddress = null;
+
+      if (typeof args.out_tx.from_address !== 'undefined' &&
+          args.out_tx.from_address !== null) {
+        fromAddress = toChecksumAddress(args.out_tx.from_address);
+      }
+
       return Orders.create(
         {
           id: args.order_id,
@@ -206,7 +213,7 @@ export async function newOutOrder(args: any): Promise<any> {
           outTx: {
             coin: args.out_tx.coin,
             txId: args.out_tx.tx_id,
-            fromAddress: toChecksumAddress(args.out_tx.from_address),
+            fromAddress: fromAddress,
             toAddress: toChecksumAddress(args.out_tx.to_address),
             amount: args.out_tx.amount,
             txCreatedAt: args.out_tx.created_at,
