@@ -19,7 +19,7 @@ import type {
 import { DataTypes, Model, Sequelize, Transaction } from 'sequelize';
 
 import * as configs from './config/config.db';
-import { appConfig } from '../app';
+import { appConfig } from './app';
 
 const env = process.env.NODE_ENV ?? 'development';
 const config = configs[env];
@@ -149,7 +149,7 @@ export class DerivedWallets extends Model {
   public countOrders!: HasManyCountAssociationsMixin;
 }
 
-export type Coin = 'USDT' | `${appConfig.exchangePrefix}.USDT`;
+export type Coin = 'USDT' | 'FINTEH.USDT';
 
 export type TxError =
   | 'NO_ERROR'
