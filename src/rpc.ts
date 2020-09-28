@@ -1,3 +1,4 @@
+import { hdkey } from 'ethereumjs-wallet';
 import { Client as WebSocketClient } from 'rpc-websockets';
 import type { Transaction } from 'sequelize';
 
@@ -8,9 +9,19 @@ import { getHotAddress, toChecksumAddress } from './web3';
 
 let bookerProvider = null;
 
-export function getBookerProvider(): WebSocketClient {
+export async function getBookerProvider(): WebSocketClient {
   if (bookerProvider === null) {
     bookerProvider = new WebSocketClient(appConfig.bookerProvider);
+
+    bookerProvider.connect();
+
+    await new Promise((resolve, _reject) => {
+      bookerProvider.once('open', () => {
+        console.log('Connection to Booker has been established successfully.');
+
+        resolve();
+      });
+    });
   }
 
   return bookerProvider;
@@ -228,7 +239,15 @@ export async function newOutOrder(args: any): Promise<any> {
     await job.retry();
   }
 
-  return { coin: 'USDT', amount: '0' };
+  return {
+    coin: 'USDT',
+    amount: '0',
+    from_address: hdkey
+      .fromMasterSeed(appConfig.ethereumSignKey)
+      .getWallet()
+      .getAddressString(),
+    max_confirmations: appConfig.ethereumRequiredConfirmations,
+  };
 }
 
 export async function newOutOrderHTTP(

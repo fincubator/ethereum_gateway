@@ -368,10 +368,6 @@ export interface ERC20Contracts {
   [key: string]: any;
 }
 
-console.log(
-  hdkey.fromMasterSeed(appConfig.ethereumSignKey).getWallet().getAddressString()
-);
-
 const web3 = new Web3(appConfig.web3Provider);
 
 export function toChecksumAddress(address: string): string {
@@ -413,7 +409,7 @@ export async function txTransferTo(
 
   if (
     typeof order.inTx.coin === 'undefined' ||
-    order.inTx.coin !== 'FINTEH.USDT'
+    order.inTx.coin !== `${appConfig.exchangePrefix}.USDT`
   ) {
     throw new OrderTxUnknownCoinFrom();
   }
@@ -488,7 +484,10 @@ export async function txTransferTo(
 
       await order.outTx.save({ transaction });
     });
-    await getBookerProvider().call('update_order', {
+
+    const booker = await getBookerProvider();
+
+    await booker.call('update_order', {
       order_id: order.id,
       out_tx: {
         coin: order.outTx.coin,
@@ -702,7 +701,9 @@ export async function processTx(
       return false;
     }
 
-    await getBookerProvider().call('update_tx', {
+    const booker = await getBookerProvider();
+
+    await booker.call('update_order', {
       order_id: order.id,
       [txUpdateType]: {
         coin: txInOut.coin,

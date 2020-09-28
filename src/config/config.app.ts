@@ -7,6 +7,7 @@ export interface ApplicationConfig {
   memoryDBUsername: string;
   memoryDBPassword: string;
   bookerProvider: string;
+  exchangePrefix: string;
   ethereumColdKey: string;
   ethereumSignKey: string;
   web3Provider: string;
@@ -24,6 +25,7 @@ export const developmentConfig: ApplicationConfig = {
   memoryDBUsername: process.env.MEMORY_DB_USERNAME ?? 'payment-gateway',
   memoryDBPassword: process.env.MEMORY_DB_PASSWORD ?? 'payment-gateway',
   bookerProvider: process.env.BOOKER_PROVIDER ?? 'http://localhost:8081/ws-rpc',
+  exchangePrefix: process.env.EXCHANGE_PREFIX ?? 'FINTEH',
   memoryDBHost: process.env.MEMORY_DB_HOST ?? 'memory_db',
   memoryDBPort: process.env.MEMORY_DB_PORT ?? '6379',
   memoryDBUsername: process.env.MEMORY_DB_USERNAME ?? 'payment-gateway',
