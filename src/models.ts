@@ -19,6 +19,7 @@ import type {
 import { DataTypes, Model, Sequelize, Transaction } from 'sequelize';
 
 import * as configs from './config/config.db';
+import { appConfig } from '../app';
 
 const env = process.env.NODE_ENV ?? 'development';
 const config = configs[env];
@@ -148,7 +149,7 @@ export class DerivedWallets extends Model {
   public countOrders!: HasManyCountAssociationsMixin;
 }
 
-export type Coin = 'USDT' | 'FINTEH.USDT';
+export type Coin = 'USDT' | `${appConfig.exchangePrefix}.USDT`;
 
 export type TxError =
   | 'NO_ERROR'
@@ -315,7 +316,7 @@ Txs.init(
       defaultValue: DataTypes.UUIDV4,
     },
     coin: {
-      type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
+      type: DataTypes.ENUM('USDT', `${appConfig.exchangePrefix}.USDT`),
       allowNull: false,
     },
     txId: DataTypes.STRING,

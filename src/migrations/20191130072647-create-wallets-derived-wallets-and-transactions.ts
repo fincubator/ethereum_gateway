@@ -1,6 +1,8 @@
 import type { QueryInterface, Transaction } from 'sequelize';
 import { DataTypes, Op } from 'sequelize';
 
+import { appConfig } from '../app';
+
 async function up(
   queryInterface: QueryInterface,
   _DataTypes: any
@@ -107,7 +109,7 @@ async function up(
             defaultValue: DataTypes.UUIDV4,
           },
           coin: {
-            type: DataTypes.ENUM('USDT', 'FINTEH.USDT'),
+            type: DataTypes.ENUM('USDT', `${appConfig.exchangePrefix}.USDT`),
             allowNull: false,
           },
           txId: DataTypes.STRING,
