@@ -208,6 +208,10 @@ async function up(
             allowNull: false,
             defaultValue: 'TRASH',
           },
+          flow: {
+            type: DataTypes.ENUM('IN', 'OUT'),
+            allowNull: false,
+          },
           inTxId: {
             type: DataTypes.UUID,
             unique: true,

@@ -18,8 +18,8 @@ import type {
 } from 'sequelize';
 import { DataTypes, Model, Sequelize, Transaction } from 'sequelize';
 
-import * as configs from './config/config.db';
 import { appConfig } from './app';
+import * as configs from './config/config.db';
 
 const env = process.env.NODE_ENV ?? 'development';
 const config = configs[env];
@@ -198,7 +198,7 @@ export class Txs extends Model {
 
 export type OrderType = 'TRASH' | 'DEPOSIT' | 'WITHDRAWAL';
 
-export type OrderParty = 'INIT' | 'IN_CREATED' | 'OUT_CREATED';
+export type OrderFlow = 'IN' | 'OUT';
 
 export class Orders extends Model {
   public id!: string;
@@ -211,7 +211,7 @@ export class Orders extends Model {
 
   public type!: OrderType;
 
-  public party!: OrderParty;
+  public flow!: OrderFlow;
 
   public inTxId!: string;
 
@@ -365,6 +365,10 @@ Orders.init(
     },
     type: {
       type: DataTypes.ENUM('TRASH', 'DEPOSIT', 'WITHDRAWAL'),
+      allowNull: false,
+    },
+    flow: {
+      type: DataTypes.ENUM('IN', 'OUT'),
       allowNull: false,
     },
   },
