@@ -21,7 +21,7 @@ export default new Worker(
   async (job: Job) => {
     await jobs[job.name](job);
   },
-  { connection }
+  { concurrency: 128, connection }
 ).on('failed', (job: Job, error) => {
   console.error(
     `Job ${inspect(job.id)} failed with:${os.EOL}${inspect(error)}`

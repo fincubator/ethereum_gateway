@@ -9,7 +9,7 @@ import { getHotAddress, toChecksumAddress } from './web3';
 
 let bookerProvider = null;
 
-export async function getBookerProvider(): WebSocketClient {
+export async function getBookerProvider(): Promise<WebSocketClient> {
   if (bookerProvider === null) {
     bookerProvider = new WebSocketClient(appConfig.bookerProvider);
 
@@ -94,6 +94,7 @@ export async function newInOrder(args: any): Promise<any> {
         {
           id: args.order_id,
           type: args.order_type,
+          flow: 'IN',
           inTx: {
             coin: args.in_tx.coin,
             txId: args.in_tx.tx_id,
@@ -133,7 +134,7 @@ export async function newInOrder(args: any): Promise<any> {
 
   if (job === null) {
     await queue.add(
-      `payment:in`,
+      'payment',
       {},
       { jobId: order.jobId, timeout: 1000 * 60 * 60 }
     );
@@ -190,8 +191,10 @@ export async function newOutOrder(args: any): Promise<any> {
 
       let fromAddress = null;
 
-      if (typeof args.out_tx.from_address !== 'undefined' &&
-          args.out_tx.from_address !== null) {
+      if (
+        typeof args.out_tx.from_address !== 'undefined' &&
+        args.out_tx.from_address !== null
+      ) {
         fromAddress = toChecksumAddress(args.out_tx.from_address);
       }
 
@@ -199,6 +202,7 @@ export async function newOutOrder(args: any): Promise<any> {
         {
           id: args.order_id,
           type: args.order_type,
+          flow: 'OUT',
           inTx: {
             coin: args.in_tx.coin,
             txId: args.in_tx.tx_id,
@@ -213,7 +217,7 @@ export async function newOutOrder(args: any): Promise<any> {
           outTx: {
             coin: args.out_tx.coin,
             txId: args.out_tx.tx_id,
-            fromAddress: fromAddress,
+            fromAddress,
             toAddress: toChecksumAddress(args.out_tx.to_address),
             amount: args.out_tx.amount,
             txCreatedAt: args.out_tx.created_at,
@@ -238,7 +242,7 @@ export async function newOutOrder(args: any): Promise<any> {
 
   if (job === null) {
     await queue.add(
-      `payment:out`,
+      'payment',
       {},
       { jobId: order.jobId, timeout: 1000 * 60 * 60 }
     );

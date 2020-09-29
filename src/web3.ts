@@ -3,7 +3,7 @@ import type { EventEmitter } from 'events';
 import type { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
 import { hdkey } from 'ethereumjs-wallet';
-import type { Transaction } from 'sequelize';
+import type { OptimisticLockError, Transaction } from 'sequelize';
 import Web3 from 'web3';
 import type { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
 import type { EventData } from 'web3-eth-contract';
@@ -389,8 +389,6 @@ export const erc20Contracts: ERC20Contracts = {
   USDT: new web3.eth.Contract(erc20Abi, appConfig.ethereumUSDTAddress),
 };
 
-type TxType = 'in' | 'out';
-
 export async function txTransferTo(
   _job: Job,
   order: Orders
@@ -508,7 +506,6 @@ export async function txTransferTo(
 export async function processTx(
   job: Job,
   order: Orders,
-  txType: TxType,
   tx: any
 ): Promise<boolean> {
   if (typeof order.inTx === 'undefined') {
@@ -520,14 +517,18 @@ export async function processTx(
   }
 
   const txInOut =
-    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+    order.flow === 'IN'
+      ? order.inTx
+      : order.flow === 'OUT'
+      ? order.outTx
+      : null;
 
   if (txInOut === null) {
     throw new OrderUnknownType();
   }
 
   const txUpdateType =
-    txType === 'in' ? 'in_tx' : txType === 'out' ? 'out_tx' : null;
+    order.flow === 'IN' ? 'in_tx' : order.flow === 'OUT' ? 'out_tx' : null;
 
   if (txUpdateType === null) {
     throw new OrderUnknownType();
@@ -727,10 +728,31 @@ export async function processTx(
   return true;
 }
 
+export async function tryProcessTx(
+  job: Job,
+  order: Orders,
+  tx: any
+): Promise<boolean> {
+  while (true) {
+    try {
+      return await processTx(job, order, tx);
+    } catch (error) {
+      if (error instanceof OptimisticLockError) {
+        console.error(error);
+
+        await sequelize.transaction(async (transaction: Transaction) => {
+          await order.reload({ transaction });
+        });
+      } else {
+        throw error;
+      }
+    }
+  }
+}
+
 export async function fetchAndProcessTx(
   job: Job,
   order: Orders,
-  txType: TxType,
   event: EventData
 ): Promise<boolean> {
   let tx;
@@ -758,13 +780,12 @@ export async function fetchAndProcessTx(
     }
   } while (tx === null);
 
-  return processTx(job, order, txType, tx);
+  return tryProcessTx(job, order, tx);
 }
 
 export async function fetchAllHistoricalBlock(
   job: Job,
   order: Orders,
-  txType: TxType,
   taskStatus: TaskStatus
 ): Promise<boolean> {
   if (typeof order.inTx === 'undefined') {
@@ -776,7 +797,11 @@ export async function fetchAllHistoricalBlock(
   }
 
   const txInOut =
-    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+    order.flow === 'IN'
+      ? order.inTx
+      : order.flow === 'OUT'
+      ? order.outTx
+      : null;
 
   if (txInOut === null) {
     throw new OrderUnknownType();
@@ -844,7 +869,7 @@ export async function fetchAllHistoricalBlock(
 
     if (events !== null) {
       for (const event of events) {
-        const processed = await fetchAndProcessTx(job, order, txType, event);
+        const processed = await fetchAndProcessTx(job, order, event);
 
         if (processed) {
           return true;
@@ -863,7 +888,6 @@ export async function fetchAllHistoricalBlock(
 export async function fetchAllNewBlock(
   job: Job,
   order: Orders,
-  txType: TxType,
   taskStatus: TaskStatus
 ): Promise<boolean> {
   return new Promise((resolve, reject) => {
@@ -876,7 +900,11 @@ export async function fetchAllNewBlock(
     }
 
     const txInOut =
-      txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+      order.flow === 'IN'
+        ? order.inTx
+        : order.flow === 'OUT'
+        ? order.outTx
+        : null;
 
     if (txInOut === null) {
       throw new OrderUnknownType();
@@ -930,7 +958,7 @@ export async function fetchAllNewBlock(
           reject(eventError);
         }
 
-        fetchAndProcessTx(job, order, txType, event).then(
+        fetchAndProcessTx(job, order, event).then(
           (processed: boolean) => resolve(processed),
           (processError) => reject(processError)
         );
@@ -941,8 +969,7 @@ export async function fetchAllNewBlock(
 
 export async function fetchBlockUntilTxFound(
   job: Job,
-  order: Orders,
-  txType: TxType
+  order: Orders
 ): Promise<boolean> {
   const orderCloned = await sequelize.transaction(
     async (transaction: Transaction) => {
@@ -971,7 +998,11 @@ export async function fetchBlockUntilTxFound(
   }
 
   const txInOut =
-    txType === 'in' ? order.inTx : txType === 'out' ? order.outTx : null;
+    order.flow === 'IN'
+      ? order.inTx
+      : order.flow === 'OUT'
+      ? order.outTx
+      : null;
 
   if (txInOut === null) {
     throw new OrderUnknownType();
@@ -999,13 +1030,13 @@ export async function fetchBlockUntilTxFound(
   return resolveAny(job, [
     {
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
-        return fetchAllHistoricalBlock(job, orderCloned, txType, taskStatus);
+        return fetchAllHistoricalBlock(job, orderCloned, taskStatus);
       },
       skip: true,
     },
     {
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
-        return fetchAllNewBlock(job, order, txType, taskStatus);
+        return fetchAllNewBlock(job, order, taskStatus);
       },
       skip: false,
     },
