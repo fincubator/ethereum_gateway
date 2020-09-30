@@ -476,7 +476,7 @@ export async function txTransferTo(
     await sequelize.transaction(async (transaction: Transaction) => {
       order.outTx.txId = tx!.transactionHash;
       order.outTx.fromAddress = fromAdress;
-      order.outTx.amount = amountTo.toString();
+      order.outTx.amount = order.inTx.amount;
       order.outTx.txCreatedAt = new Date();
       order.outTx.maxConfirmations = appConfig.ethereumRequiredConfirmations;
       order.outTx.tx = tx;
