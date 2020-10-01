@@ -74,6 +74,16 @@ export async function getDepositAddress(args: any): Promise<any> {
   return { user: args.user, deposit_address: outTxTo };
 }
 
+export async function getDepositAddressRPC(args: any): Promise<any> {
+  try {
+    return await getDepositAddress(args);
+  } catch (error) {
+    console.error(error);
+
+    throw error;
+  }
+}
+
 export async function getDepositAddressHTTP(
   rq: Request,
   rs: Response
@@ -143,6 +153,16 @@ export async function newInOrder(args: any): Promise<any> {
   }
 
   return {};
+}
+
+export async function newInOrderRPC(args: any): Promise<any> {
+  try {
+    return await newInOrder(args);
+  } catch (error) {
+    console.error(error);
+
+    throw error;
+  }
 }
 
 export async function newInOrderHTTP(rq: Request, rs: Response): Promise<void> {
@@ -261,6 +281,16 @@ export async function newOutOrder(args: any): Promise<any> {
   };
 }
 
+export async function newOutOrderRPC(args: any): Promise<any> {
+  try {
+    return await newOutOrder(args);
+  } catch (error) {
+    console.error(error);
+
+    throw error;
+  }
+}
+
 export async function newOutOrderHTTP(
   rq: Request,
   rs: Response
@@ -272,6 +302,16 @@ export async function validateAddress(args: any): Promise<any> {
   args.is_valid = true;
 
   return args;
+}
+
+export async function validateAddressRPC(args: any): Promise<any> {
+  try {
+    return await validateAddress(args);
+  } catch (error) {
+    console.error(error);
+
+    throw error;
+  }
 }
 
 app.post('/v1/get_deposit_address', getDepositAddressHTTP);
