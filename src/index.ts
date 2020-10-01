@@ -11,19 +11,19 @@ import { Server as WebSocketServer } from 'rpc-websockets';
 
 import { app, appConfig, onSignal, onStart } from './app';
 import {
-  getDepositAddress,
-  newInOrder,
-  newOutOrder,
-  validateAddressRequest
+  getDepositAddressRPC,
+  newInOrderRPC,
+  newOutOrderRPC,
+  validateAddressRPC
 } from './rpc';
 
 const server = http.createServer(app);
 const rpc = new WebSocketServer({ server, path: '/ws-rpc' });
 
-rpc.register('create_empty_order', newInOrder, '/ws-rpc');
-rpc.register('init_new_tx', newOutOrder, '/ws-rpc');
-rpc.register('get_deposit_address', getDepositAddress, '/ws-rpc');
-rpc.register('validate_address_request', validateAddressRequest, '/ws-rpc');
+rpc.register('create_empty_order', newInOrderRPC, '/ws-rpc');
+rpc.register('init_new_tx', newOutOrderRPC, '/ws-rpc');
+rpc.register('get_deposit_address', getDepositAddressRPC, '/ws-rpc');
+rpc.register('validate_address', validateAddressRPC, '/ws-rpc');
 
 createTerminus(server, {
   signal: 'SIGINT',
