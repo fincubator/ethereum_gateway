@@ -8,6 +8,11 @@ import { applicationConfigs } from './config/config.app';
 
 const env = process.env.NODE_ENV ?? 'development';
 export const appConfig = applicationConfigs[env];
+
+if (appConfig.ethereumSignKey.startsWith('0x')) {
+  appConfig.ethereumSignKey = appConfig.ethereumSignKey.substring(2);
+}
+
 export const app = express();
 
 if (process.env.NODE_ENV === 'development') {

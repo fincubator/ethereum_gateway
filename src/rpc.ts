@@ -1,11 +1,10 @@
-import { hdkey } from 'ethereumjs-wallet';
 import { Client as WebSocketClient } from 'rpc-websockets';
 import type { Transaction } from 'sequelize';
 
 import { app, appConfig } from './app';
 import { DerivedWallets, Orders, Txs, Wallets, sequelize } from './models';
 import queue from './queue';
-import { getHotAddress, toChecksumAddress } from './web3';
+import { getColdAddress, getHotAddress, toChecksumAddress } from './web3';
 
 let bookerProvider = null;
 
@@ -59,7 +58,7 @@ export async function getDepositAddress(args: any): Promise<any> {
           {
             walletId: wallet.id,
             payment: 'ethereum',
-            invoice: getHotAddress(wallet),
+            invoice: getColdAddress(wallet),
           },
           { transaction }
         );
@@ -273,10 +272,7 @@ export async function newOutOrder(args: any): Promise<any> {
   return {
     coin: 'USDT',
     amount: '0',
-    from_address: hdkey
-      .fromMasterSeed(appConfig.ethereumSignKey)
-      .getWallet()
-      .getAddressString(),
+    from_address: getHotAddress(),
     max_confirmations: appConfig.ethereumRequiredConfirmations,
   };
 }
