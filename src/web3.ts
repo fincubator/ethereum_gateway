@@ -664,6 +664,14 @@ export async function processTx(
     const confirmations = currentBlock - txStatus!.blockNumber + 1;
     /* eslint-enable @typescript-eslint/no-non-null-assertion */
 
+    if (confirmations < 0) {
+      await new Promise((resolve, _reject) => {
+        setTimeout(() => resolve(), appConfig.ethereumBlockCheckTime);
+      });
+
+      continue;
+    }
+
     if (
       txInOut.txId !== null &&
       txInOut.confirmations >= txInOut.maxConfirmations
