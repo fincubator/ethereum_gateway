@@ -460,14 +460,17 @@ export async function txTransferTo(
       order.inTx.amount,
       Decimal.pow(10, assetDecimals)
     ).toString();
+
     const callData = erc20Contract.methods.transfer(
       order.outTx.toAddress,
       amountTo
     );
+    const estimatedGas = await callData.estimateGas({ from: fromAdress });
+
     tx = await web3.eth.accounts.signTransaction(
       {
         to: erc20Contract._address,
-        gas: (await callData.estimateGas()) * 4,
+        gas: estimatedGas * 4,
         data: callData.encodeABI(),
       },
       appConfig.ethereumSignKey
