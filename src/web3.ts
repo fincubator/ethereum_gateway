@@ -2,6 +2,7 @@ import type { EventEmitter } from 'events';
 
 import type { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
+import hdwallet from 'ethereumjs-wallet';
 import { hdkey } from 'ethereumjs-wallet';
 import type { Transaction } from 'sequelize';
 import { OptimisticLockError } from 'sequelize';
@@ -375,14 +376,18 @@ export function toChecksumAddress(address: string): string {
   return web3.utils.toChecksumAddress(address);
 }
 
-export function getHotAddress(wallet: Wallets): string {
-  return toChecksumAddress(
-    hdkey
-      .fromExtendedKey(appConfig.ethereumColdKey)
-      .derivePath(`m/0/${wallet.id}`)
-      .getWallet()
-      .getAddressString()
-  );
+export function getHotAddress(): string {
+  return hdwallet
+    .fromPrivateKey(Buffer.from(appConfig.ethereumSignKey, 'hex'))
+    .getChecksumAddressString();
+}
+
+export function getColdAddress(wallet: Wallets): string {
+  return hdkey
+    .fromExtendedKey(appConfig.ethereumColdKey)
+    .derivePath(`m/0/${wallet.id}`)
+    .getWallet()
+    .getChecksumAddressString();
 }
 
 export const erc20Contracts: ERC20Contracts = {
@@ -441,12 +446,7 @@ export async function txTransferTo(
   }
 
   let tx: TxRaw | null = null;
-  const fromAdress = toChecksumAddress(
-    hdkey
-      .fromMasterSeed(appConfig.ethereumSignKey)
-      .getWallet()
-      .getAddressString()
-  );
+  const fromAdress = getHotAddress();
 
   if (
     order.inTx.txId !== null &&
