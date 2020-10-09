@@ -198,7 +198,7 @@ async function up(
           },
           walletId: {
             type: DataTypes.BIGINT,
-            allowNull: false,
+            allowNull: true,
             references: { model: 'DerivedWallets', key: 'id' },
             onUpdate: 'cascade',
             onDelete: 'cascade',
