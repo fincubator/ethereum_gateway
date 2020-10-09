@@ -2,10 +2,14 @@ import type { EventEmitter } from 'events';
 
 import type { Job } from 'bullmq';
 import { Decimal } from 'decimal.js';
-import hdwallet from 'ethereumjs-wallet';
-import { hdkey } from 'ethereumjs-wallet';
+import hdwallet, { hdkey } from 'ethereumjs-wallet';
 import type { Transaction } from 'sequelize';
-import { OptimisticLockError } from 'sequelize';
+import {
+  Op,
+  OptimisticLockError,
+  Sequelize,
+  UniqueConstraintError
+} from 'sequelize';
 import Web3 from 'web3';
 import type { EventLog, PromiEvent, TransactionReceipt } from 'web3-core';
 import type { EventData } from 'web3-eth-contract';
@@ -171,12 +175,12 @@ export const erc20Abi = [
     outputs: [
       {
         name: 'name',
-        type: 'string',
-      },
+        type: 'string'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: true,
@@ -185,12 +189,12 @@ export const erc20Abi = [
     outputs: [
       {
         name: 'symbol',
-        type: 'string',
-      },
+        type: 'string'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: true,
@@ -199,12 +203,12 @@ export const erc20Abi = [
     outputs: [
       {
         name: 'decimals',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: true,
@@ -213,112 +217,112 @@ export const erc20Abi = [
     outputs: [
       {
         name: 'totalSupply',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: true,
     inputs: [
       {
         name: 'owner',
-        type: 'address',
-      },
+        type: 'address'
+      }
     ],
     name: 'balanceOf',
     outputs: [
       {
         name: 'balance',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: false,
     inputs: [
       {
         name: 'to',
-        type: 'address',
+        type: 'address'
       },
       {
         name: 'amount',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     name: 'transfer',
     outputs: [],
     payable: false,
     stateMutability: 'nonpayable' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: false,
     inputs: [
       {
         name: 'from',
-        type: 'address',
+        type: 'address'
       },
       {
         name: 'to',
-        type: 'address',
+        type: 'address'
       },
       {
         name: 'amount',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     name: 'transferFrom',
     outputs: [],
     payable: false,
     stateMutability: 'nonpayable' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: false,
     inputs: [
       {
         name: 'spender',
-        type: 'address',
+        type: 'address'
       },
       {
         name: 'amount',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     name: 'approve',
     outputs: [],
     payable: false,
     stateMutability: 'nonpayable' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     constant: true,
     inputs: [
       {
         name: 'owner',
-        type: 'address',
+        type: 'address'
       },
       {
         name: 'spender',
-        type: 'address',
-      },
+        type: 'address'
+      }
     ],
     name: 'allowance',
     outputs: [
       {
         name: 'remaining',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     payable: false,
     stateMutability: 'view' as StateMutabilityType,
-    type: 'function' as AbiType,
+    type: 'function' as AbiType
   },
   {
     anonymous: false,
@@ -326,21 +330,21 @@ export const erc20Abi = [
       {
         indexed: true,
         name: 'from',
-        type: 'address',
+        type: 'address'
       },
       {
         indexed: true,
         name: 'to',
-        type: 'address',
+        type: 'address'
       },
       {
         indexed: false,
         name: 'amount',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     name: 'Transfer',
-    type: 'event' as AbiType,
+    type: 'event' as AbiType
   },
   {
     anonymous: false,
@@ -348,22 +352,22 @@ export const erc20Abi = [
       {
         indexed: true,
         name: 'owner',
-        type: 'address',
+        type: 'address'
       },
       {
         indexed: true,
         name: 'spender',
-        type: 'address',
+        type: 'address'
       },
       {
         indexed: false,
         name: 'value',
-        type: 'uint256',
-      },
+        type: 'uint256'
+      }
     ],
     name: 'Approval',
-    type: 'event' as AbiType,
-  },
+    type: 'event' as AbiType
+  }
 ];
 
 export interface ERC20Contracts {
@@ -392,7 +396,7 @@ export function getColdAddress(wallet: Wallets): string {
 
 export const erc20Contracts: ERC20Contracts = {
   // https://api.etherscan.io/api?module=contract&action=getsourcecode&address=
-  USDT: new web3.eth.Contract(erc20Abi, appConfig.ethereumUSDTAddress),
+  USDT: new web3.eth.Contract(erc20Abi, appConfig.ethereumUSDTAddress)
 };
 
 export async function txTransferTo(
@@ -460,32 +464,72 @@ export async function txTransferTo(
       order.inTx.amount,
       Decimal.pow(10, assetDecimals)
     ).toString();
-
     const callData = erc20Contract.methods.transfer(
       order.outTx.toAddress,
       amountTo
     );
-    const estimatedGas = await callData.estimateGas({ from: fromAdress });
 
-    tx = await web3.eth.accounts.signTransaction(
-      {
-        to: erc20Contract._address,
-        gas: estimatedGas * 4,
-        data: callData.encodeABI(),
-      },
-      appConfig.ethereumSignKey
-    );
+    while (true) {
+      const estimatedGas = await callData.estimateGas({ from: fromAdress });
 
-    await sequelize.transaction(async (transaction: Transaction) => {
-      order.outTx.txId = tx!.transactionHash;
-      order.outTx.fromAddress = fromAdress;
-      order.outTx.amount = order.inTx.amount;
-      order.outTx.txCreatedAt = new Date();
-      order.outTx.maxConfirmations = appConfig.ethereumRequiredConfirmations;
-      order.outTx.tx = tx;
+      tx = await web3.eth.accounts.signTransaction(
+        {
+          to: erc20Contract._address,
+          gas: estimatedGas * 4,
+          data: callData.encodeABI()
+        },
+        appConfig.ethereumSignKey
+      );
 
-      await order.outTx.save({ transaction });
-    });
+      try {
+        const result = await sequelize.transaction(
+          async (transaction: Transaction) => {
+            const txsCount = await Txs.count({
+              where: {
+                txId: { [Op.ne]: null },
+                error: 'NO_ERROR',
+                confirmations: { [Op.lt]: Sequelize.col('maxConfirmations') }
+              },
+              transaction
+            });
+
+            if (txsCount > 0) {
+              return false;
+            }
+
+            order.outTx.txId = tx!.transactionHash;
+            order.outTx.fromAddress = fromAdress;
+            order.outTx.amount = order.inTx.amount;
+            order.outTx.txCreatedAt = new Date();
+            order.outTx.maxConfirmations =
+              appConfig.ethereumRequiredConfirmations;
+            order.outTx.tx = tx;
+
+            await order.outTx.save({ transaction });
+
+            return true;
+          }
+        );
+
+        if (!result) {
+          await new Promise((resolve, _reject) => {
+            setTimeout(() => resolve(), appConfig.ethereumBlockCheckTime);
+          });
+
+          continue;
+        }
+
+        break;
+      } catch (error) {
+        if (error instanceof UniqueConstraintError) {
+          await new Promise((resolve, _reject) => {
+            setTimeout(() => resolve(), appConfig.ethereumBlockCheckTime);
+          });
+        } else {
+          throw error;
+        }
+      }
+    }
 
     const booker = await getBookerProvider();
 
@@ -497,6 +541,7 @@ export async function txTransferTo(
         from_address: order.outTx.fromAddress,
         to_address: order.outTx.toAddress,
         amount: order.outTx.amount,
+        error: order.outTx.error,
         created_at: order.outTx.txCreatedAt,
         confirmations: order.outTx.confirmations,
         max_confirmations: order.outTx.maxConfirmations,
@@ -576,6 +621,8 @@ export async function processTx(
     throw new TransferEventDeclDoesntExist();
   }
 
+  const booker = await getBookerProvider();
+
   do {
     let txNotFetched = true;
     let currentBlock: number;
@@ -641,6 +688,32 @@ export async function processTx(
               `doesn't match`
           );
 
+          if (
+            txInOut.txId !== null &&
+            txInOut.confirmations < txInOut.maxConfirmations
+          ) {
+            await sequelize.transaction(async (transaction: Transaction) => {
+              txInOut.error = 'UNKNOWN_ERROR';
+
+              await txInOut.save({ transaction });
+            });
+
+            await booker.call('update_order', {
+              order_id: order.id,
+              [txUpdateType]: {
+                coin: txInOut.coin,
+                tx_id: txInOut.txId,
+                from_address: txInOut.fromAddress,
+                to_address: txInOut.toAddress,
+                amount: txInOut.amount,
+                error: txInOut.error,
+                created_at: txInOut.txCreatedAt,
+                confirmations: txInOut.confirmations,
+                max_confirmations: txInOut.maxConfirmations,
+              },
+            });
+          }
+
           return false;
         }
 
@@ -685,7 +758,7 @@ export async function processTx(
           const existingTx = await Txs.findOne({
             attributes: ['txId'],
             where: { txId: txHash },
-            transaction,
+            transaction
           });
 
           if (existingTx !== null) {
@@ -714,8 +787,6 @@ export async function processTx(
       return false;
     }
 
-    const booker = await getBookerProvider();
-
     await booker.call('update_order', {
       order_id: order.id,
       [txUpdateType]: {
@@ -724,6 +795,7 @@ export async function processTx(
         from_address: txInOut.fromAddress,
         to_address: txInOut.toAddress,
         amount: txInOut.amount,
+        error: txInOut.error,
         created_at: txInOut.txCreatedAt,
         confirmations: txInOut.confirmations,
         max_confirmations: txInOut.maxConfirmations,
@@ -750,8 +822,6 @@ export async function tryProcessTx(
       return await processTx(job, order, tx);
     } catch (error) {
       if (error instanceof OptimisticLockError) {
-        console.error(error);
-
         await sequelize.transaction(async (transaction: Transaction) => {
           await order.reload({ transaction });
         });
@@ -864,10 +934,10 @@ export async function fetchAllHistoricalBlock(
     try {
       events = await erc20Contract.getPastEvents('Transfer', {
         filter: {
-          to: txInOut.toAddress,
+          to: txInOut.toAddress
         },
         fromBlock: leftBlock,
-        toBlock: rightBlock,
+        toBlock: rightBlock
       });
     } catch (error) {
       console.error(
@@ -958,8 +1028,8 @@ export async function fetchAllNewBlock(
       'Transfer',
       {
         filter: {
-          to: txInOut.toAddress,
-        },
+          to: txInOut.toAddress
+        }
       },
       (eventError: Error, event: EventData) => {
         if (taskStatus.resolved()) {
@@ -988,9 +1058,9 @@ export async function fetchBlockUntilTxFound(
       const maybeOrderCloned = await Orders.findByPk(order.id, {
         include: [
           { model: Txs, as: 'inTx' },
-          { model: Txs, as: 'outTx' },
+          { model: Txs, as: 'outTx' }
         ],
-        transaction,
+        transaction
       });
 
       if (maybeOrderCloned === null) {
@@ -1044,13 +1114,13 @@ export async function fetchBlockUntilTxFound(
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
         return fetchAllHistoricalBlock(job, orderCloned, taskStatus);
       },
-      skip: true,
+      skip: true
     },
     {
       handler: async (taskStatus: TaskStatus): Promise<boolean> => {
         return fetchAllNewBlock(job, order, taskStatus);
       },
-      skip: false,
-    },
+      skip: false
+    }
   ]);
 }
