@@ -91,11 +91,14 @@ export async function getDepositAddressHTTP(
 }
 
 export async function newInOrder(args: any): Promise<any> {
+  const fromAddress = toChecksumAddress(args.in_tx.from_address);
+  const toAddress = toChecksumAddress(args.in_tx.to_address);
+
   const order = await sequelize.transaction(
     async (transaction: Transaction) => {
       const wallet = await DerivedWallets.findOne({
         attributes: ['id'],
-        where: { payment: 'ethereum', invoice: args.in_tx.to_address },
+        where: { payment: 'ethereum', invoice: toAddress },
         transaction,
       });
 
@@ -107,8 +110,8 @@ export async function newInOrder(args: any): Promise<any> {
           inTx: {
             coin: args.in_tx.coin,
             txId: args.in_tx.tx_id,
-            fromAddress: toChecksumAddress(args.in_tx.from_address),
-            toAddress: toChecksumAddress(args.in_tx.to_address),
+            fromAddress,
+            toAddress,
             amount: args.in_tx.amount,
             txCreatedAt: args.in_tx.created_at,
             error: args.in_tx.error,
@@ -169,54 +172,19 @@ export async function newInOrderHTTP(rq: Request, rs: Response): Promise<void> {
 }
 
 export async function newOutOrder(args: any): Promise<any> {
+  let fromAddress = null;
+
+  if (
+    typeof args.out_tx.from_address !== 'undefined' &&
+    args.out_tx.from_address !== null
+  ) {
+    fromAddress = toChecksumAddress(args.out_tx.from_address);
+  }
+
+  const toAddress = toChecksumAddress(args.out_tx.to_address);
+
   const order = await sequelize.transaction(
     async (transaction: Transaction) => {
-      const wallet = (
-        await Wallets.findOrCreate({
-          attributes: ['id', 'payment'],
-          where: { payment: 'ethereum', invoice: args.out_tx.to_address },
-          include: [
-            {
-              model: DerivedWallets,
-              as: 'derivedWallets',
-              attributes: ['id', 'invoice'],
-              where: { payment: 'bitshares' },
-              required: false,
-              separate: true,
-              limit: 1,
-            },
-          ],
-          transaction,
-        })
-      )[0];
-
-      let derivedWallet;
-
-      if (
-        typeof wallet.derivedWallets === 'undefined' ||
-        wallet.derivedWallets.length === 0
-      ) {
-        derivedWallet = await DerivedWallets.create(
-          {
-            walletId: wallet.id,
-            payment: 'bitshares',
-            invoice: args.in_tx.from_address,
-          },
-          { transaction }
-        );
-      } else {
-        [derivedWallet] = wallet.derivedWallets;
-      }
-
-      let fromAddress = null;
-
-      if (
-        typeof args.out_tx.from_address !== 'undefined' &&
-        args.out_tx.from_address !== null
-      ) {
-        fromAddress = toChecksumAddress(args.out_tx.from_address);
-      }
-
       return Orders.create(
         {
           id: args.order_id,
@@ -237,14 +205,13 @@ export async function newOutOrder(args: any): Promise<any> {
             coin: args.out_tx.coin,
             txId: args.out_tx.tx_id,
             fromAddress,
-            toAddress: toChecksumAddress(args.out_tx.to_address),
+            toAddress,
             amount: args.out_tx.amount,
             txCreatedAt: args.out_tx.created_at,
             error: args.out_tx.error,
             confirmations: args.out_tx.confirmations,
             maxConfirmations: args.out_tx.max_confirmations,
-          },
-          walletId: derivedWallet.id,
+          }
         },
         {
           include: [
